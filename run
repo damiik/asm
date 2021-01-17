@@ -1,0 +1,20 @@
+#!/bin/bash
+# make -k
+
+make all
+if [ $? == 0 ] 
+then
+  
+  # rm ./*.cmi
+  # rm ./*.o
+  rm ./*.cmo
+  # rm ./*.cmx
+
+  #./logic
+  if [[ $# -eq 0  ]]
+  then
+    ocamlrun ./asm.bytes
+  else 
+    ocamlrun ./asm.bytes $1
+  fi
+fi

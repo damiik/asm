@@ -1,0 +1,7 @@
+./*.bytes
+./*.cmi
+./*.cmo
+
+logic.bytes
+logic.cmi
+logic.cmo
