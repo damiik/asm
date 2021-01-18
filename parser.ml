@@ -6,6 +6,7 @@ testing in utop:
   #load "str.cma";;
   #use "./parser.ml";;
   exp_p.run {tokens= ref (Array.of_list (tokenize "1203*2+5*10  ss")) ; pos= 0};;
+  exp_p.run {tokens= ref (Array.of_list (tokenize "(2+(5*3))-8")) ; pos= 0};;
 *)
 
 exception TokenizerError of string
@@ -372,14 +373,15 @@ let ( <*> ) (p1: ('a * 'b) parser) (p2: ('c * 'd) parser): ('a * 'd) parser =
           | Error e -> input', Error e
   }
 
-let ( <|> ) (p1: 'a parser) (p2: 'a parser): 'a parser =
-  { run = fun input ->
-          let input', result = p1.run input in
-          match result with
-          | Ok x -> input', Ok x
-          | Error _ -> p2.run input
-  } *)
-
+*)
+let ( <|> ) (p1: 'a parser) (p2: 'a parser): 'a parser = { 
+  
+  run = fun input -> 
+    let input', result = input |> p1.run in
+    match result with
+    | Ok _ -> (input', result)
+    | Error _ -> input |> p2.run  
+}
 
 let ( *> ) (p1: 'a parser) (p2: 'b parser): 'b parser = { run = fun input -> 
   input |> (p1 >>= (fun _ -> p2 >>= (fun b -> return b))).run }
@@ -387,6 +389,8 @@ let ( <* ) (p1: 'a parser) (p2: 'b parser): 'a parser = { run = fun input ->
   input |> (p1 >>= (fun a -> p2 >>= (fun _ -> return a))).run }
 let ( <*> ) (p1: 'a parser) (p2: 'b parser): ('a * 'b) parser  = { run = fun input -> 
   input |> (p1 >>= (fun a -> p2 >>= (fun b -> return (a,b)))).run }
+
+
 
 let optional (p: 'a parser): 'a option parser =
   { run = fun input ->
@@ -462,26 +466,6 @@ let oneOrMore (p:'a parser) : 'a list parser = {
 }   
 
 (* TODO: change to monad ver *)
-let number_p: int parser = {
-  run = fun input -> 
-   
-    match !(input.tokens).( input.pos ) with
-    | Tok_Num n_str  -> 
-        (* Printf.printf "number_p:[%s]" n_str; *)
-        let str_len = String.length n_str in
-        if(str_len > 0) then (
-          match n_str.[0] with
-          | '$' -> {tokens = input.tokens; pos = input.pos + 1}, Ok (String.sub n_str 1 (str_len-1) |> Printf.sprintf "0x%s" |> int_of_string)
-          | '%' -> {tokens = input.tokens; pos = input.pos + 1}, Ok (String.sub n_str 1 (str_len-1) |> Printf.sprintf "0b%s" |> int_of_string)
-          | _ -> {tokens = input.tokens; pos = input.pos + 1}, Ok (int_of_string n_str)
-        )
-        else input, Error ( Printf.sprintf ": Not a number: %s at: [%d] " n_str input.pos)
-    | token -> 
-     
-      input, Error ( Printf.sprintf ": Number expected but got: %s at: [%d] " (token2str token) input.pos)
-}
-
-(* TODO: change to monad ver *)
 let is_a (t: token) : bool parser = {
   run = fun input -> 
 
@@ -538,8 +522,27 @@ let rec eval exp : int =
   F -> 0,1,2,3..| (E) | -F  factor
 *)  
 
-let factor_p: exp parser = (* 3 *)
-  number_p >>= fun num -> return (Num num)
+
+(* TODO: change to monad ver *)
+let number_p: int parser = {
+  run = fun input -> 
+   
+    match !(input.tokens).( input.pos ) with
+    | Tok_Num n_str  -> 
+        (* Printf.printf "number_p:[%s]" n_str; *)
+        let str_len = String.length n_str in
+        if(str_len > 0) then (
+          match n_str.[0] with
+          | '$' -> {tokens = input.tokens; pos = input.pos + 1}, Ok (String.sub n_str 1 (str_len-1) |> Printf.sprintf "0x%s" |> int_of_string)
+          | '%' -> {tokens = input.tokens; pos = input.pos + 1}, Ok (String.sub n_str 1 (str_len-1) |> Printf.sprintf "0b%s" |> int_of_string)
+          | _ -> {tokens = input.tokens; pos = input.pos + 1}, Ok (int_of_string n_str)
+        )
+        else input, Error ( Printf.sprintf ": Not a number: %s at: [%d] " n_str input.pos)
+    | token -> 
+     
+      input, Error ( Printf.sprintf ": Number expected but got: %s at: [%d] " (token2str token) input.pos)
+}
+
 
 
 
@@ -557,8 +560,19 @@ let rec term_p =
               Printf.printf "END term_p/factor_p/getTok/return at:[%s]\n" (t |> token2str);
               get_back >>= fun _ ->  return exp1).run  (*** get_back -> odwijamy o jeden token !! *)
 }
+and factor_p: exp parser = {
+  run = fun input -> 
+    input |> (
+      (number_p >>= fun res -> return (Num res)) <|> 
+      ((is_a Tok_OBra) *> exp_p <* (is_a Tok_CBra)) <|>
+      ((is_a Tok_Sub) *> (number_p >>= fun res -> return (Num (-res))))
+    ).run
+}
 
-let rec exp_p : exp parser  =
+      
+
+
+and exp_p : exp parser  =
 { run = fun input -> 
    Printf.printf "BEGIN exp_p num:[%s] at:[%d]\n" (!(input.tokens).( input.pos ) |> token2str) input.pos;
   input |> (
@@ -599,7 +613,17 @@ let run (p: 'a parser) (t: token array ref): ('a, error) result =
 
 
 
-(* let  term_p: exp parser = { (* 2 *)
+(*
+
+(* number parser to expression parser wrappers *)
+let to_exp_p num_p = num_p >>= fun res -> return (Num res)
+let to_negexp_p num_p = num_p >>= fun res -> return (Num (-res))
+
+
+ let  term_p: exp parser = { (* 2 *)
+
+
+
 
   run = 
     let rec term_p input = 
