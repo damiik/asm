@@ -264,22 +264,30 @@ let map (f: 'a -> 'b) (p: 'a parser): 'b parser =
   { run = fun input ->
           match p.run input with
           | input', Ok x        -> input', Ok (f x)
-          | input', Error error -> input', Error error
+          | _, Error error -> input, Error error (* if fail, return old input pos *)
   }
 
 let bind (f: 'a -> 'b parser) (p: 'a parser): 'b parser =
   { run = fun input ->
           match p.run input with
           | input', Ok x -> (f x).run input'
-          | input', Error error -> input', Error error
+          | _, Error error -> input, Error error (* if fail, return old input pos *)
   }
 
 let ( >>= )  (p: 'a parser) (f: 'a -> 'b parser)  : 'b parser  = { 
   
   run = fun input -> 
-      match p.run input with
-          | input', Ok x -> (f x).run input'
-          | input', Error error -> input', Error error
+      (* Printf.printf "begin >>= :[%s] at:[%d]\n" (!(input.tokens).( input.pos ) |> token2str) input.pos; *)
+      let input', result = p.run input in
+      match result with
+          | Ok x -> 
+                (* Printf.printf "end >>= 1:[%s] at:[%d]\n" (!(input'.tokens).( input'.pos ) |> token2str) input'.pos; *)
+                let input'', result' = (f x).run input' in
+                (* Printf.printf "end >>= 2:[%s] at:[%d]\n" (!(input''.tokens).( input''.pos ) |> token2str) input''.pos; *)
+                (input'', result')
+          | Error error -> 
+                (* Printf.printf "end (err) >>= :[%s] at:[%d]\n" (!(input.tokens).( input.pos ) |> token2str) input.pos; *)
+                input, Error error (* if fail, return old input pos *)
 }
 
 let parse_while (p: token -> bool): (int*int) parser =
@@ -385,9 +393,10 @@ let optional (p: 'a parser): 'a option parser =
           let input', result = p.run input in
           match result with
           | Ok x    -> input', Ok (Some x)
-          | Error _ -> input', Ok None
+          | Error _ -> input, Ok None      (* if fail, return old input pos *)
   }
 
+(* TODO: change to monad ver *)
 let many_exact (n: int) (p: 'a parser): 'a list parser = { 
   run = fun input ->
 
@@ -396,12 +405,13 @@ let many_exact (n: int) (p: 'a parser): 'a list parser = {
               let input'', result = p.run input' in
               match result with
               | Ok x    -> loop (i + 1) (x :: xs) input''
-              | Error e -> input'', Error e
+              | Error e -> input', Error e (* if fail, return old input pos *)
             else
               input', Ok (List.rev xs)
           in loop 0 [] input
   }
 
+(* TODO: change to monad ver *)
 let many (p: 'a parser): 'a list parser = { 
   run = fun input ->
 
@@ -419,7 +429,7 @@ let many (p: 'a parser): 'a list parser = {
           input', Ok (!xs |> List.rev)
   }
 
-
+(* TODO: change to monad ver *)
 let zeroOrMore (p:'a parser) : 'a list parser = {
   run = fun input -> 
 
@@ -435,6 +445,7 @@ let zeroOrMore (p:'a parser) : 'a list parser = {
     parse_fun input
 }  
 
+(* TODO: change to monad ver *)
 let oneOrMore (p:'a parser) : 'a list parser = {
   run = fun input -> 
 
@@ -450,7 +461,7 @@ let oneOrMore (p:'a parser) : 'a list parser = {
     parse_fun input
 }   
 
-
+(* TODO: change to monad ver *)
 let number_p: int parser = {
   run = fun input -> 
    
@@ -470,6 +481,7 @@ let number_p: int parser = {
       input, Error ( Printf.sprintf ": Number expected but got: %s at: [%d] " (token2str token) input.pos)
 }
 
+(* TODO: change to monad ver *)
 let is_a (t: token) : bool parser = {
   run = fun input -> 
 
@@ -479,9 +491,22 @@ let is_a (t: token) : bool parser = {
          input, Error ( Printf.sprintf ": Not a %s at: [%d] " (t |> token2str) input.pos)
 }
 
-let getTok : token parser = {
+(* 
+  parser stosowany w monadach >>= gdzie nie ma bezpośredniego dostępu do input.pos
+  Cofanie o jedną pozycję.
+*)
+let get_back  : int parser = {
   run = fun input -> 
 
+    if(input.pos > 0) then 
+        {tokens = input.tokens; pos = input.pos - 1}, Ok (input.pos -1)
+    else
+        input, Error ( Printf.sprintf ": try get_back to %s at: [%d] " (!(input.tokens).( input.pos ) |> token2str) input.pos)
+}
+
+let getTok : token parser = {
+  run = fun input -> 
+    Printf.printf "getTok t:[%s] at:[%d]\n" (!(input.tokens).( input.pos ) |> token2str) input.pos;
     if (!(input.tokens) |> Array.length > input.pos) then 
         {tokens = input.tokens; pos = input.pos + 1}, Ok !(input.tokens).( input.pos )
     else
@@ -497,7 +522,7 @@ type exp =
   | Mul of exp * exp
   | Div of exp * exp
 
-let rec eval exp = 
+let rec eval exp : int = 
   match exp with
   | Num n -> n
   | Mul (e1, e2) -> eval e1 * eval e2
@@ -516,7 +541,65 @@ let rec eval exp =
 let factor_p: exp parser = (* 3 *)
   number_p >>= fun num -> return (Num num)
 
-(* let  term_p2: exp parser = { (* 2 *)
+
+
+let rec term_p = 
+{ run = fun input -> 
+  Printf.printf "BEGIN term_p num:[%s] at:[%d]\n" (!(input.tokens).( input.pos ) |> token2str) input.pos;
+  input |> (
+      factor_p >>= fun exp1 -> 
+      getTok >>= fun token ->
+        Printf.printf "term_p/factor_p/getTok:[%s]\n" (token |> token2str);
+        match(token) with
+            | Tok_Mul -> term_p >>= fun exp2 -> return (Mul (exp1, exp2))
+            | Tok_Div -> term_p >>= fun exp2 -> return (Div (exp1, exp2))
+            | t ->
+              Printf.printf "END term_p/factor_p/getTok/return at:[%s]\n" (t |> token2str);
+              get_back >>= fun _ ->  return exp1).run  (*** get_back -> odwijamy o jeden token !! *)
+}
+
+let rec exp_p : exp parser  =
+{ run = fun input -> 
+   Printf.printf "BEGIN exp_p num:[%s] at:[%d]\n" (!(input.tokens).( input.pos ) |> token2str) input.pos;
+  input |> (
+      term_p >>= fun exp1 -> 
+      getTok >>= fun token ->
+        Printf.printf "exp_p/term_p/getTok:[%s]\n" (token |> token2str);
+        match(token) with
+            | Tok_Sum -> exp_p >>= fun exp2 -> return (Sum (exp1, exp2))
+            | Tok_Sub -> exp_p >>= fun exp2 -> return (Sub (exp1, exp2))
+            | t -> 
+              Printf.printf "END exp_p/term_p/getTok/return at:[%s]\n" (t |> token2str);
+              get_back >>= fun _ ->  return exp1).run   (*** get_back -> odwijamy o jeden token !! *)
+}
+
+
+(* let pair: pair_t parser =
+  let name = parse_while (fun x -> not (is_space x) && x != '=') in
+  (wss *> name <* wss <* prefix "=" <* wss) <*> (name <* wss)
+ *)
+
+
+
+
+(* let any_token: token parser =
+  { run = fun input ->
+          let n = String.length input.tokens in
+          try
+            input_sub 1 (n - 1) input, Ok (String.get input.tokens 0)
+          with
+            Invalid_argument _ -> input, Error "expected any token"
+  } *)
+
+let run (p: 'a parser) (t: token array ref): ('a, error) result =
+  match {tokens = t; pos = 0} |> p.run with
+  | _     , Ok x    -> Ok x
+  | input', Error desc -> Error {pos = input'.pos; desc = desc; }
+
+
+
+
+(* let  term_p: exp parser = { (* 2 *)
 
   run = 
     let rec term_p input = 
@@ -552,7 +635,7 @@ let factor_p: exp parser = (* 3 *)
     term_p
 }    
 
-let exp_p2: exp parser = { (* 1 *)
+let exp_p: exp parser = { (* 1 *)
 
   run = 
     let rec exp_p input = 
@@ -584,52 +667,6 @@ let exp_p2: exp parser = { (* 1 *)
       in
     exp_p
 }   *)
-
-let rec term_p : exp parser =  (* 1 *)
-{ run = fun input -> 
-  input |> (
-      factor_p >>= fun exp1 -> 
-      getTok >>= fun token ->
-        match(token) with
-            | Tok_Mul -> term_p >>= fun exp2 -> return (Mul (exp1, exp2))
-            | Tok_Div -> term_p >>= fun exp2 -> return (Div (exp1, exp2))
-            | _ -> return exp1).run
-}
-
-let rec exp_p : exp parser =  (* 1 *)
-{ run = fun input -> 
-  input |> (
-      term_p >>= fun exp1 -> 
-      getTok >>= fun token ->
-        match(token) with
-            | Tok_Sum -> exp_p >>= fun exp2 -> return (Sum (exp1, exp2))
-            | Tok_Sub -> exp_p >>= fun exp2 -> return (Sub (exp1, exp2))
-            | _ -> return exp1).run
-}
-
-
-(* let pair: pair_t parser =
-  let name = parse_while (fun x -> not (is_space x) && x != '=') in
-  (wss *> name <* wss <* prefix "=" <* wss) <*> (name <* wss)
- *)
-
-
-
-
-(* let any_token: token parser =
-  { run = fun input ->
-          let n = String.length input.tokens in
-          try
-            input_sub 1 (n - 1) input, Ok (String.get input.tokens 0)
-          with
-            Invalid_argument _ -> input, Error "expected any token"
-  } *)
-
-let run (p: 'a parser) (t: token array ref): ('a, error) result =
-  match {tokens = t; pos = 0} |> p.run with
-  | _     , Ok x    -> Ok x
-  | input', Error desc -> Error {pos = input'.pos; desc = desc; }
-
 
 (* 
 let rec parse_E () =
