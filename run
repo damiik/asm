@@ -1,7 +1,8 @@
 #!/bin/bash
 # make -k
 
-make all
+# make all
+dune build 
 if [ $? == 0 ] 
 then
   
@@ -13,8 +14,8 @@ then
   #./logic
   if [[ $# -eq 0  ]]
   then
-    ocamlrun ./asm.bytes
+    ./_build/default/bin/asm.exe # ocamlrun ./asm.bytes
   else 
-    ocamlrun ./asm.bytes $1
+    ./_build/default/bin/asm.exe $1 # ocamlrun ./asm.bytes $1
   fi
 fi

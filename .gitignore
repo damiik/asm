@@ -1,7 +1,9 @@
+_build/*
 ./*.bytes
 ./*.cmi
 ./*.cmo
+./*.cmx
+./*.o
+trash.ml
 
-logic.bytes
-logic.cmi
-logic.cmo
+

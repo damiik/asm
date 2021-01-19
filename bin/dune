@@ -1,0 +1,10 @@
+(executable
+    (name asm)
+    (libraries parser tokenizer str)
+    ; (preprocess (pps ppx_deriving.show))
+    )
+
+;  (install
+;     (package parser)
+;     (section bin)
+;     (files (asm.exe as asm)))   

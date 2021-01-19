@@ -1,0 +1,35 @@
+#  .PHONY: all #don't refer to real files
+#  all: ini.bytes ini
+
+# SRC = ./
+ TARGET = asm
+
+
+# #executable file
+# ini:  ${SRC}parser.ml ${SRC}${TARGET}.ml
+# 	ocamlfind ocamlopt -I ${SRC} -o ${TARGET} ${SRC}c6502instr.ml ${SRC}tokenizer.ml ${SRC}parser.ml str.cma ${SRC}${TARGET}.ml
+
+# #ocamlrun script executable (binary data)
+# ini.bytes:  ${SRC}parser.ml ${SRC}${TARGET}.ml
+# 	ocamlfind ocamlc -I ${SRC} -o ./${TARGET}.bytes ${SRC}c6502instr.ml ${SRC}tokenizer.ml ${SRC}parser.ml str.cma ${SRC}${TARGET}.ml 
+
+default: ${TARGET}
+
+asm: ${TARGET}.native
+
+# test: test.native
+
+%.native: 
+    ocamlbuild -use-ocamlfind $@
+    mv $@ $*
+
+.PHONY: default
+
+clean:
+	-rm -f *.cmi
+	-rm -f *.cmx
+	-rm -f *.cmo
+	-rm -f *.o
+	-rm -f *.bytes
+	-rm -f $(TARGET)
+

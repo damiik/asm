@@ -1,2 +1,6 @@
-./
-Str
+PRJ asm
+S src
+
+PKG str
+
+B _build/src

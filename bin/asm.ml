@@ -1,6 +1,8 @@
+open Tokenizer
 open Parser
 
-
+module T = Tokenizer
+module P = Parser
 let a1 = {|
 
 message: .byte "hello, my beautyfull world!"
@@ -60,7 +62,7 @@ __vinit:
 |} 
 ;;
 
-let a = "1203*2+5*10  ss"
+let a = "2+5*(-%0001001010+3)-8"
 (* "$125/10-2*$ff z" *)
 
 let tokens_arr = ref (Array.of_list (tokenize a))  ;;
@@ -69,17 +71,17 @@ let tokens_arr = ref (Array.of_list (tokenize a))  ;;
 
 
 
-Parser.showTokens ( tokens_arr );;
-match (Parser.run (
+showTokens ( tokens_arr );;
+match (P.run (
 
     (* ((prefix (Tok_Mul::[])) <|> (prefix (Tok_Sum::[]))) <*> (prefix (Tok_Mul::[])) *)
     (* (prefix ((Tok_Char 'b')::[]) <*> prefix ((Tok_Word "girl")::[])) >>= fun (a,b) -> return b  *)
-    exp_p >>= fun a -> return a
+    bind exp_p ( fun a -> P.return a)
   
   ) ( tokens_arr )) with
 (* | Ok (pos, len), a ->  
                   Printf.printf "Ok at: %d  length: %d\n%s" pos len (tokensn2str tokens_arr (pos, len))*)
-| Ok a -> Printf.printf "Success with  %d" (eval a)
+| Ok a -> Printf.printf "Success with  %d" (P.eval a)
 | Error e -> Printf.printf "Error %s" e.desc
 
 

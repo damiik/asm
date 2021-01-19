@@ -1,23 +1,24 @@
-.PHONY: all #don't refer to real files
-all: ini.bytes ini
 
-TARGET = asm
+# Frontend to dune.
 
-#executable file
-ini: ./parser.ml ./${TARGET}.ml
-	ocamlfind ocamlopt -I ./ -o ${TARGET} ./parser.ml ./${TARGET}.ml
+.PHONY: default build install uninstall test clean
 
-#ocamlrun script executable (binary data)
-ini.bytes: ./parser.ml ./${TARGET}.ml
-	ocamlfind ocamlc -I ./ -o ./${TARGET}.bytes str.cma ./parser.ml ./${TARGET}.ml 
+default: build
 
+build:
+	dune build
 
+test:
+	dune runtest -f
+
+install:
+	dune install
+
+uninstall:
+	dune uninstall
 
 clean:
-	-rm -f *.cmi
-	-rm -f *.cmx
-	-rm -f *.cmo
-	-rm -f *.o
-	-rm -f *.bytes
-	-rm -f $(TARGET)
-
+	dune clean
+# Optionally, remove all files/folders ignored by git as defined
+# in .gitignore (-X).
+	git clean -dfXq
