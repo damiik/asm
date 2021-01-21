@@ -4,6 +4,7 @@ _build/*
 ./*.cmo
 ./*.cmx
 ./*.o
+*.merlin
 trash.ml
 
 

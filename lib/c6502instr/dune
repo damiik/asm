@@ -1,0 +1,7 @@
+
+(library
+ (name c6502instr)
+ (libraries str)
+ (public_name c6502instr)
+ ; (preprocess (pps ppx_deriving.show))
+ )

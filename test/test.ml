@@ -5,36 +5,75 @@ module T = Tokenizer
 module P = Parser
 module A = Alcotest
 
-let pp_expr ppf exp = Fmt.pf ppf "expression %s" (P.exp2string exp)
-let myexpr = Alcotest.testable pp_expr P.exp_compare
-
-let parse_test inp_s =
-        match exp_p.run {tokens= ref (Array.of_list (tokenize inp_s)) ; pos= 0} with
-        | _, Ok expr -> expr
-        | _, Error _ -> Num 1
-let checkparse e result = A.(check myexpr) e result (parse_test e)
-
-let test_numbers () =
-   checkparse "3" (Num 3);
-   checkparse "$1251356125" (Num 78671864101);
-   checkparse "1203*2+5*10" (Sum ( Mul ( (Num 1203), (Num 2) ), Mul ((Num 5), (Num 10))))
-
-let test_braces() =
-
-   checkparse "2+5*(-%0001001010+3)-8" (Sum(Num 2, Sub(Mul(Num 5, Sum(Min (Num 74), Num 3)), Num 8)));
-   checkparse "(2+(5*3))-8" (Sub(Sum(Num 2, Mul(Num 5, Num 3)), Num 8))
-
 let quickcase (descr, case) = A.test_case descr `Quick case 
-let test_suite = List.map quickcase [
-    ("parse numbers", test_numbers);
-    ("parse braces", test_braces);
+
+(* test expressions *)
+let my_expr_compare = (Alcotest.testable (fun ppf exp -> Fmt.pf ppf "expression %s" (P.exp2string exp))) P.exp_compare
+
+let checkparse_exp inp_s result = A.(check my_expr_compare) inp_s result (
+
+  match exp_p.run {tokens= ref (Array.of_list (tokenize inp_s)) ; pos= 0} with
+  | _, Ok expr -> expr
+  | _, Error _ -> Null
+)
+let test_suite_exp = List.map quickcase [
+    ("test numbers", fun () -> (
+        checkparse_exp "3" (Num 3);
+        checkparse_exp "$12513561254" (Num 0x12513561254);
+        checkparse_exp "1203*2+5*10" (Sum ( Mul ( (Num 1203), (Num 2) ), Mul ((Num 5), (Num 10))))
+      )
+    );
+    ("test braces", fun () -> (
+        checkparse_exp "2+5*(-%0001001010+3)-8" (Sum(Num 2, Sub(Mul(Num 5, Sum(Min (Num 74), Num 3)), Num 8)));
+        checkparse_exp "(2+(5*3))-8" (Sub(Sum(Num 2, Mul(Num 5, Num 3)), Num 8))
+      )
+    );
+  ] 
+
+(* test instructions *)
+
+
+let my_instr_list_compare = (Alcotest.testable (fun ppf exp -> Fmt.pf ppf "instruction %s" (P.instr_list2string exp))) P.instr_list_compare
+
+let checkparse_instr inp_s result  = A.(check my_instr_list_compare) inp_s result (
+
+    match inst_line_p.run {tokens= ref (Array.of_list (tokenize inp_s)) ; pos= 0} with
+    (* | (_,l) -> l *)
+    | _, Ok instr -> instr
+    | _, Error _ -> [Empty]
+)
+let m32(l:int list) = List.map (fun e -> (Int32.of_int e)) l
+let test_suite_instr = List.map quickcase [
+    ("test instructions", fun () -> (
+        (* checkparse_instr "\n" [Empty]; *)
+        checkparse_instr "label1:\n" [(Label "label1:")];
+        checkparse_instr "LDA #$FF\n"[Instr (m32 [0xA9;0xFF])];
+        checkparse_instr "LDA $FF\n" [Instr (m32 [0xA5;0xFF])];
+        (* checkparse_instr "LDA #$100\n" (Instr (m32 [0xA9;0x00;0x01])); <-- fail *) 
+        checkparse_instr "LDA $1000\n" [Instr (m32 [0xAD;0x00;0x10])];
+        checkparse_instr "LDA $1000\nlabel2:JMP ($5597)\n" [Instr (m32 [0xAD;0x00;0x10]); Label_Instr ("label2:", m32 [0x6C;0x97;0x55])];
+        checkparse_instr "label1: lda #%00001110\n" [Label_Instr ("label1:", (m32 [169;0x0e]))];
+      )
+    );
+    ("test instructions addr modes", fun () -> (
+
+        checkparse_instr "JMP ($5597)\n" [Instr (m32 [0x6C;0x97;0x55])];
+        checkparse_instr "CMP $4401,X\n" [Instr (m32 [0xDD;0x01;0x44])];
+        checkparse_instr "CMP $4401,Y\n" [Instr (m32 [0xD9;0x01;0x44])];
+        checkparse_instr "CMP $44,X\n" [Instr (m32 [0xD5;0x44])];
+        checkparse_instr "STX $44,Y\n" [Instr (m32 [0x96;0x44])];
+        checkparse_instr "SBC ($FF,X)\n" [Instr (m32 [0xE1;0xFF])];
+        checkparse_instr "SBC ($FF),Y\n" [Instr (m32 [0xF1;0xFF])];
+      )
+    );
   ] 
 
 let () = Printexc.record_backtrace true; A.run "parser" [
     "stack", [
       (* A.test_case "" `Quick test_xxx; *)
     ];
-    "parser", test_suite;
+    "parser - expressions", test_suite_exp;
+    "parser - instructions", test_suite_instr;
 
     (* "miscellanous programs", Testprogram.test_suite; *)
   ]

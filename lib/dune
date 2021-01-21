@@ -1,7 +1,7 @@
 
 (library
  (name parser)
- (libraries tokenizer str)
+ (libraries tokenizer c6502instr str)
  (public_name parser)
  ; (preprocess (pps ppx_deriving.show))
  )

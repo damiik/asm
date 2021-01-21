@@ -14,12 +14,12 @@ type token =
   | Tok_Hash
   | Tok_OBra
   | Tok_CBra
-  | Tok_Word of string
+  | Tok_Word of string   (*  abc  *)
   | Tok_Char of char
   | Tok_NewL
-  | Tok_Label of string
-  | Tok_KeyW of string
-  | Tok_String of string
+  | Tok_Label of string  (* abc:  *)
+  | Tok_KeyW of string   (* .abc  *)
+  | Tok_String of string (* "abc" *)
   | Tok_End
 
 
@@ -27,82 +27,82 @@ type token =
 let tokenize str = 
   
   let rec f pos s = 
-  Printf.printf "tokenize str: %d -> %s\n" pos s;
+  (* Printf.printf "tokenize str: %d -> %s" pos s; *)
   if pos >= String.length s then [Tok_End]
   else
     if(Str.string_match (Str.regexp "\\(\\%[01]+\\)\\|\\(\\$[0-9a-fA-F]+\\)\\|\\([0-9]+\\)") s pos) then
       let token = Str.matched_string s in
-      Printf.printf "tokenize num: %s\n" token;
+      (* Printf.printf "tokenize num: %s\n" token; *)
       (Tok_Num token)::(f (pos + (String.length token)) s)
     else if (Str.string_match (Str.regexp "\\+") s pos) then begin
-      Printf.printf "tokenize add\n";
+      (* Printf.printf "tokenize add\n"; *)
       Tok_Sum::(f (pos + 1) s)
     end
     else if (Str.string_match (Str.regexp "\\*") s pos) then begin
-      Printf.printf "tokenize mul\n";
+      (* Printf.printf "tokenize mul\n"; *)
       Tok_Mul::(f (pos + 1) s)
     end
     else if (Str.string_match (Str.regexp "\\/") s pos) then begin
-      Printf.printf "tokenize div\n";
+      (* Printf.printf "tokenize div\n"; *)
       Tok_Div::(f (pos + 1) s)
     end
     else if (Str.string_match (Str.regexp "\\-") s pos) then begin
-      Printf.printf "tokenize min\n";
+      (* Printf.printf "tokenize min\n"; *)
       Tok_Sub::(f (pos + 1) s)
     end
     else if (Str.string_match (Str.regexp "=") s pos) then begin
-      Printf.printf "tokenize equ\n";
+      (* Printf.printf "tokenize equ\n"; *)
       Tok_Equ::(f (pos + 1) s)
     end
     else if (Str.string_match (Str.regexp "\\,") s pos) then begin
-      Printf.printf "tokenize equ\n";
+      (* Printf.printf "tokenize coma\n"; *)
       Tok_Coma::(f (pos + 1) s)
     end
     else if (Str.string_match (Str.regexp "#") s pos) then begin
-      Printf.printf "tokenize equ\n";
+      (* Printf.printf "tokenize hash\n"; *)
       Tok_Hash::(f (pos + 1) s)
     end
     else if (Str.string_match (Str.regexp "(") s pos) then begin
-      Printf.printf "tokenize open bra\n";
+      (* Printf.printf "tokenize open bra\n"; *)
       Tok_OBra::(f (pos + 1) s)
     end
     else if (Str.string_match (Str.regexp ")") s pos) then begin
-      Printf.printf "tokenize closed bra\n";
+      (* Printf.printf "tokenize closed bra\n"; *)
       Tok_CBra::(f (pos + 1) s)
     end
     else if (Str.string_match (Str.regexp "\\\'.\\\'") s pos) then begin
       let token = Str.matched_string s in
-      Printf.printf "tokenize char: %s\n" token;
+      (* Printf.printf "tokenize char: %s\n" token; *)
       (Tok_Char token.[1])::(f (pos + 3) s)
     end
     else if (Str.string_match (Str.regexp "\\\"\\([^\\\"]*\\)\\\"") s pos) then begin
       let token = Str.matched_group 1 s in
-      Printf.printf "tokenize string: %s\n" token;
+      (* Printf.printf "tokenize string: %s\n" token; *)
       (Tok_String token)::(f (pos + (String.length token + 2)) s)
     end
     else if (Str.string_match (Str.regexp "[a-zA-Z_@][a-zA-Z_@0-9]*\\:") s pos) then begin
       let token = Str.matched_string s in
-      Printf.printf "tokenize label: %s\n" token;
+      (* Printf.printf "tokenize label: %s\n" token; *)
       (Tok_Label token)::(f (pos + (String.length token)) s)
     end
     else if (Str.string_match (Str.regexp "\\.[a-zA-Z_]+") s pos) then begin
       let token = Str.matched_string s in
-      Printf.printf "tokenize keyword: %s\n" token;
+      (* Printf.printf "tokenize keyword: %s\n" token; *)
       (Tok_KeyW token)::(f (pos + (String.length token)) s)
     end  
     else if (Str.string_match (Str.regexp "[a-zA-Z_@][a-zA-Z_@0-9]*") s pos) then begin
       let token = Str.matched_string s in
-      Printf.printf "tokenize word: %s\n" token;
+      (* Printf.printf "tokenize word: %s\n" token; *)
       (Tok_Word token)::(f (pos + (String.length token)) s)
     end
     else if (Str.string_match (Str.regexp "\\([\t ]+\\)\\|\\(\\;[^\n]*\\)") s pos) then begin
       let token = Str.matched_string s in
-      Printf.printf "tokenize white: %s\n" token;
+      (* Printf.printf "tokenize white: %s\n" token; *)
       (f (pos + (String.length token)) s)
     end
     else if (Str.string_match (Str.regexp "[\n]+") s pos) then begin
       let token = Str.matched_string s in
-      Printf.printf "tokenize newl: %s\n" token;
+      (* Printf.printf "tokenize newl: %s\n" token; *)
       Tok_NewL::(f (pos + (String.length token)) s)
     end 
     else
