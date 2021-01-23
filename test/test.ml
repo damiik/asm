@@ -12,7 +12,7 @@ let my_expr_compare = (Alcotest.testable (fun ppf exp -> Fmt.pf ppf "expression 
 
 let checkparse_exp inp_s result = A.(check my_expr_compare) inp_s result (
 
-  match exp_p.run (input_rec (ref (Array.of_list (tokenize inp_s))) 0 0) with
+  match exp_p.run (set_state (ref (Array.of_list (tokenize inp_s))) 0 0) with
   | _, Ok expr -> expr
   | _, Error _ -> Null
 )
@@ -37,7 +37,7 @@ let my_instr_list_compare = (Alcotest.testable (fun ppf exp -> Fmt.pf ppf "instr
 
 let checkparse_instr inp_s result  = A.(check my_instr_list_compare) inp_s result (
 
-    match inst_line_p.run (input_rec (ref (Array.of_list (tokenize inp_s))) 0 0) with
+    match inst_line_p.run (set_state (ref (Array.of_list (tokenize inp_s))) 0 0) with
     (* | (_,l) -> l *)
     | _, Ok instr -> instr
     | _, Error _ -> [Empty]

@@ -5,21 +5,21 @@ type c6502_opcode =
   | TAY  | TSX  | TXA  | TXS  | TYA
 
 type address_mode = 
-  | Immediate         (* one byte *)
-  | Relative          (* one byte *)
-  | ZeroPage          (* one byte *)
-  | ZeroPageXIndexed  (* one byte *)
-  | ZeroPageYIndexed  (* one byte *)
-  | XIndexedIndirect  (* one byte *)
-  | IndirectYIndexed  (* one byte *)
-  | Absolute          (* two bytes *)
-  | AbsoluteXIndexed  (* two bytes *)
-  | AbsoluteYIndexed  (* two bytes *)
-  | Indirect          (* two bytes *)
+  | Immediate         
+  | Relative          
+  | ZeroPage          
+  | ZeroPageXIndexed  
+  | ZeroPageYIndexed 
+  | XIndexedIndirect 
+  | IndirectYIndexed 
+  | Absolute          
+  | AbsoluteXIndexed  
+  | AbsoluteYIndexed  
+  | Indirect          
   | Accumulator
   | Implicit
 
-
+(*
 type address_mode_desc = {
   
   mode: address_mode; 
@@ -27,23 +27,23 @@ type address_mode_desc = {
   size: int
 }
 
-let mkAdrrMod m s d = {mode= m; size = s; desc = d}
+ let mkAdrrMod m s d = {mode= m; size = s; desc = d}
 let address_mode_descs: address_mode_desc list = [
 
-  (mkAdrrMod Immediate        2 "#");
-  (mkAdrrMod ZeroPage         2 "$44");
-  (mkAdrrMod ZeroPageXIndexed 2 "$44,X");
-  (mkAdrrMod ZeroPageYIndexed 2 "$44,X");
-  (mkAdrrMod Absolute         3 "$4400");
-  (mkAdrrMod AbsoluteXIndexed 3 "$4400,X");
-  (mkAdrrMod AbsoluteYIndexed 3 "$4400,Y");
-  (mkAdrrMod XIndexedIndirect 2 "($44, X)");
-  (mkAdrrMod IndirectYIndexed 2 "($44),Y");
-  (mkAdrrMod Indirect         2 "($5597)");
-  (mkAdrrMod Relative         2 "label");
-  (mkAdrrMod Accumulator      1 "A");
-  (mkAdrrMod Implicit         1 "");
-]
+  (mkAdrrMod Immediate        ); (* 2 "#"*)
+  (mkAdrrMod ZeroPage         ); (* 2 "$44"*)
+  (mkAdrrMod ZeroPageXIndexed ); (* 2 "$44,X"*)
+  (mkAdrrMod ZeroPageYIndexed ); (* 2 "$44,X"*)
+  (mkAdrrMod Absolute         ); (* 3 "$4400"*)
+  (mkAdrrMod AbsoluteXIndexed ); (* 3 "$4400,X"*)
+  (mkAdrrMod AbsoluteYIndexed ); (* 3 "$4400,Y"*)
+  (mkAdrrMod XIndexedIndirect ); (* 2 "($44, X)"*)
+  (mkAdrrMod IndirectYIndexed ); (* 2 "($44),Y"*)
+  (mkAdrrMod Indirect         ); (* 2 "($5597)"*)
+  (mkAdrrMod Relative         ); (* 2 "label"*)
+  (mkAdrrMod Accumulator      ); (* 1 "A"*)
+  (mkAdrrMod Implicit         ); (* 1 ""*)
+] *)
 
 type instruction = {
 
