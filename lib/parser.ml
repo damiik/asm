@@ -147,7 +147,7 @@ let is_a (t: token) : bool parser = {
          state, Error ( Printf.sprintf ": Not a %s at: [%d] " (t |> token2str) state.pos)
 }
 
-(* return expected string *)
+(* return expected string  *)
 let word_t (s: string) : string parser = {
   run = fun state -> 
 
