@@ -34,6 +34,7 @@ exception ParserError of string
 type input =
   { tokens: token array ref;
     pos: int;
+    byte_counter: int;
   }
 
 (* let input_sub (start: int) (len: int) (s: input): input =
@@ -42,7 +43,9 @@ type input =
   } *)
 
 let make_input (s: token array ref): input =
-  { tokens = s; pos = 0 }
+  { tokens = s; pos = 0; byte_counter =0 }
+
+let input_rec t p c = {tokens = t; pos = p; byte_counter = c}
 
 type error = { 
 
@@ -97,7 +100,8 @@ let parse_while (p: token -> bool): (int*int) parser =
           while !i < n && !(input.tokens).( !i ) |> p do
             incr i
           done;
-          {tokens = input.tokens; pos = input.pos + !i}, Ok (input.pos, !i)
+          (input_rec input.tokens (input.pos + !i) input.byte_counter), Ok (input.pos, !i)
+          (* {tokens = input.tokens; pos = input.pos + !i; byte_counter = input.byte_counter}, Ok (input.pos, !i) *)
   }
 
 
@@ -132,7 +136,8 @@ let prefix (tokens: token list): (int*int) parser = {
     in
     try
       match is_exact input tokens with
-      | true, ti -> {tokens = input.tokens; pos = input.pos + ti}, Ok (input.pos, ti)
+      | true, ti -> (input_rec input.tokens (input.pos + ti) input.byte_counter), Ok (input.pos, ti)
+      (* {tokens = input.tokens; pos = input.pos + ti}, Ok (input.pos, ti) *)
       | _ ->  input, Error unexpected_prefix_error
     with
       Invalid_argument _ -> input, Error unexpected_prefix_error
@@ -218,18 +223,18 @@ let many_exact (n: int) (p: 'a parser): 'a list parser = {
 let many (p: 'a parser): 'a list parser = { 
   run = fun input ->
 
-          let xs = ref [] in
-          let rec loop input =
-            let input', result = p.run input in
-            match result with
-            | Ok x ->
-               xs := x :: !xs;
-               loop input'
-            | Error _ ->
-               input
-          in
-          let input' = loop input in
-          input', Ok (!xs |> List.rev)
+    let xs = ref [] in
+    let rec loop input =
+      let input', result = p.run input in
+      match result with
+      | Ok x ->
+          xs := x :: !xs;
+          loop input'
+      | Error _ ->
+          input
+    in
+    let input' = loop input in
+    input', Ok (!xs |> List.rev)
   }
 
 (* TODO: change to monad ver *)
@@ -269,11 +274,30 @@ let is_a (t: token) : bool parser = {
   run = fun input -> 
 
     if(tokenCompare !(input.tokens).( input.pos ) t true) then 
-        {tokens = input.tokens; pos= input.pos + 1}, Ok true
+        (input_rec input.tokens (input.pos + 1) input.byte_counter), Ok true
     else
          input, Error ( Printf.sprintf ": Not a %s at: [%d] " (t |> token2str) input.pos)
 }
 
+(* return expected string *)
+let word_t (s: string) : string parser = {
+  run = fun input -> 
+
+    match !(input.tokens).( input.pos )  with
+    | Tok_Word s2 -> if((String.compare s s2) = 0) then (input_rec input.tokens (input.pos + 1) input.byte_counter), Ok s
+                     else input, Error ( Printf.sprintf ": Not a word %s at: [%d] " s input.pos)
+    | t ->  input, Error ( Printf.sprintf ": Token %s is not a %s at: [%d] " (t |> token2str) s input.pos)
+}
+
+(* return any string *)
+let word_p: string parser = {
+  run = fun input -> 
+   
+    match !(input.tokens).( input.pos ) with
+    | Tok_Word l_str  -> (input_rec input.tokens (input.pos + 1) input.byte_counter), Ok l_str
+    | token -> 
+      input, Error ( Printf.sprintf ": Word expected but got: %s at: [%d] " (token2str token) input.pos)
+}
 
 (* 
   parser stosowany w monadach >>= gdzie nie ma bezpośredniego dostępu do input.pos
@@ -283,29 +307,26 @@ let get_back  : int parser = {
   run = fun input -> 
 
     if(input.pos > 0) then 
-        {tokens = input.tokens; pos = input.pos - 1}, Ok (input.pos -1)
+        (input_rec input.tokens (input.pos - 1) input.byte_counter), Ok (input.pos -1)
     else
         input, Error ( Printf.sprintf ": try get_back to %s at: [%d] " (!(input.tokens).( input.pos ) |> token2str) input.pos)
 }
 
+(* increment byte_counter by i *)
+let inc_bcount_p (i:int) : int parser = {
+  run = fun input -> (input_rec input.tokens input.pos (input.byte_counter + i)), Ok (input.byte_counter + i)
+}
+
+
 let getTok : token parser = {
   run = fun input -> 
     Printf.printf "getTok t:[%s] at:[%d]\n" (!(input.tokens).( input.pos ) |> token2str) input.pos;
-    if (!(input.tokens) |> Array.length > input.pos) then 
-        {tokens = input.tokens; pos = input.pos + 1}, Ok !(input.tokens).( input.pos )
+    if (!(input.tokens) |> Array.length > input.pos) then
+        (input_rec input.tokens (input.pos + 1) input.byte_counter), Ok !(input.tokens).( input.pos )
     else
          input, Error "Parser error: Unexpected end of string!"
 }
 
-
-let word_p: string parser = {
-  run = fun input -> 
-   
-    match !(input.tokens).( input.pos ) with
-    | Tok_Word l_str  -> {tokens = input.tokens; pos = input.pos + 1}, Ok l_str
-    | token -> 
-      input, Error ( Printf.sprintf ": Word expected but got: %s at: [%d] " (token2str token) input.pos)
-}
 
 
 
@@ -371,9 +392,9 @@ let number_p: int parser = {
         let str_len = String.length n_str in
         if(str_len > 0) then (
           match n_str.[0] with
-          | '$' -> {tokens = input.tokens; pos = input.pos + 1}, Ok (String.sub n_str 1 (str_len-1) |> Printf.sprintf "0x%s" |> int_of_string)
-          | '%' -> {tokens = input.tokens; pos = input.pos + 1}, Ok (String.sub n_str 1 (str_len-1) |> Printf.sprintf "0b%s" |> int_of_string)
-          | _ -> {tokens = input.tokens; pos = input.pos + 1}, Ok (int_of_string n_str)
+          | '$' -> (input_rec input.tokens (input.pos + 1) input.byte_counter), Ok (String.sub n_str 1 (str_len-1) |> Printf.sprintf "0x%s" |> int_of_string)
+          | '%' -> (input_rec input.tokens (input.pos + 1) input.byte_counter), Ok (String.sub n_str 1 (str_len-1) |> Printf.sprintf "0b%s" |> int_of_string)
+          | _ -> (input_rec input.tokens (input.pos + 1) input.byte_counter), Ok (int_of_string n_str)
         )
         else input, Error ( Printf.sprintf ": Not a number: %s at: [%d] " n_str input.pos)
     | token -> 
@@ -420,12 +441,12 @@ and exp_p : exp parser  =
 
 
 type inst_line =
-      | Label of string
-      | Instr of int32 list
-      | Label_Instr of (string * (int32 list))
-      | Keyword of string
-      | Data of int32 list
-      | Keyword_Data of (string * (int32 list))
+      | Label of string * int (* label with name and value (address) *)
+      | Instr of int32 list     (* decoded instruction *)
+      | Label_Instr of (string * int * (int32 list))
+      | Directive of string
+      | Data of int32 list (* .byte 0x00,.. *)
+      | Label_Data of (string * int * (int32 list))
       | Empty
 
 let int32_list2string l = List.fold_left (fun a n -> 
@@ -445,12 +466,12 @@ let int32_listcompare l1 l2 : bool =
 
 let rec instr2string instr: string = 
   match instr with
-  | Label s -> (Printf.sprintf "Label %s" s)
+  | Label (s, v) -> (Printf.sprintf "Label %s %d" s v)
   | Instr l -> (Printf.sprintf "Instr [%s]" (int32_list2string l))
-  | Keyword s -> (Printf.sprintf "Keyword %s" s)
+  | Directive s -> (Printf.sprintf "Directive %s" s)
   | Data l -> (Printf.sprintf "Data [%s]" (int32_list2string l))
-  | Label_Instr (l, i) -> (Printf.sprintf "(Label %s, %s)" l ((Instr i) |> instr2string))
-  | Keyword_Data (k, d) -> (Printf.sprintf "(Keyword %s, Data %s)" k ((Data d) |> instr2string))
+  | Label_Instr (s, v, i) -> (Printf.sprintf "(Label %s %d, %s)" s v ((Instr i) |> instr2string))
+  | Label_Data (s, v, d) -> (Printf.sprintf "(Label %s %d, Data %s)" s v ((Data d) |> instr2string))
   | Empty -> (Printf.sprintf "()" )
 
 
@@ -465,12 +486,12 @@ let rec instr_list2string l : string =
 (* TODO: compare Data, compare Instr *)
 let rec instr_compare instr1 instr2: bool = 
   match instr1 with
-  | Label n1 ->  (match instr2 with | Label n2 -> if(n1 = n2) then true else false | _ -> false)
+  | Label (s1,v1) ->  (match instr2 with | Label (s2, v2) -> if((String.compare s1 s2) = 0 && v1 = v2) then true else false | _ -> false)
   | Instr l1 -> (match instr2 with | Instr l2 -> if(int32_listcompare l1 l2) then true else false | _ -> false)
-  | Keyword s1 -> (match instr2 with | Keyword s2 -> if(s1 = s2) then true else false | _ -> false)
+  | Directive s1 -> (match instr2 with | Directive s2 -> if(s1 = s2) then true else false | _ -> false)
   | Data l1 -> (match instr2 with | Data l2 -> if(int32_listcompare l1 l2) then true else false | _ -> false)
-  | Label_Instr (l1, i1) -> (match instr2 with | Label_Instr (l2, i2) ->  (instr_compare (Label l1) (Label l2) ) && (instr_compare (Instr i1) (Instr i2) ) | _ -> false)
-  | Keyword_Data (k1, d1) -> (match instr2 with | Keyword_Data (k2, d2) ->  (instr_compare (Keyword k1) (Keyword k2) ) && (instr_compare (Data d1) (Data d2) ) | _ -> false)
+  | Label_Instr (s1, v1, i1) -> (match instr2 with | Label_Instr (s2, v2, i2) ->  (instr_compare (Label (s1, v1)) (Label (s2, v2)) ) && (instr_compare (Instr i1) (Instr i2) ) | _ -> false)
+  | Label_Data (s1, v1, d1) -> (match instr2 with | Label_Data (s2, v2, d2) ->  (instr_compare (Label (s1, v1)) (Label (s2, v2)) ) && (instr_compare (Data d1) (Data d2) ) | _ -> false)
   | Empty -> (match instr2 with | Empty ->  true | _ -> false)
 
 let rec instr_list_compare l1 l2 : bool = 
@@ -484,8 +505,8 @@ let rec instr_list_compare l1 l2 : bool =
 let label_p: inst_line parser = {
   run = fun input -> 
    
-    match !(input.tokens).( input.pos ) with
-    | Tok_Label l_str  -> {tokens = input.tokens; pos = input.pos + 1}, Ok (Label l_str)
+    match !(input.tokens).( input.pos ) with (* określić aktualną pozycję jako pole w input lub obliczać później *)
+    | Tok_Label l_str -> (input_rec input.tokens (input.pos + 1) input.byte_counter), Ok (Label (l_str, input.byte_counter))
     | token -> 
       input, Error ( Printf.sprintf ": Label expected but got: %s at: [%d] " (token2str token) input.pos)
 }
@@ -493,8 +514,13 @@ let label_p: inst_line parser = {
 let new_line_p: inst_line parser = ((is_a Tok_NewL) >>= fun _ -> return Empty)
 
 
-let number_to_list (n: int) = 
-  if(n>255) then 
+let number_to_list (n: int) ?(list_size = 0) () = 
+
+  if(n>65535 || list_size = 4) then 
+    [Int32.logand (Int32.of_int n) (Int32.of_int 0xFF); Int32.shift_right_logical (Int32.of_int n) 8] (* LSB, MSB *)
+  else 
+
+  if(n>255 || list_size = 2) then 
     [Int32.logand (Int32.of_int n) (Int32.of_int 0xFF); Int32.shift_right_logical (Int32.of_int n) 8] (* LSB, MSB *)
   else 
     [(Int32.of_int n)]
@@ -504,14 +530,25 @@ let number_to_list (n: int) =
 (* #$44 *)
 let immediate_p : (address_mode * (int32 list)) parser = 
   is_a(Tok_Hash) *> number_p <* new_line_p >>= fun n -> 
-                              return (Immediate,  (number_to_list n))
+                              return (Immediate,  (number_to_list n ()))
 
 (* $4400 *)
-let absolute_or_zeropage_p : (address_mode * (int32 list)) parser = 
+let absolute_p : (address_mode * (int32 list)) parser = 
   number_p <* new_line_p >>= fun n -> 
-                              if n <= 255 then return (ZeroPage, (number_to_list n)) 
+                              if n <= 255 then fail "-" 
                               else
-                                return (Absolute, (number_to_list n)) 
+                                return (Absolute, (number_to_list n ~list_size:2 ())) 
+
+
+let absolute_force_p : (address_mode * (int32 list)) parser = 
+  number_p <* new_line_p >>= fun n -> 
+                                return (Absolute, (number_to_list n ~list_size:2 ()))                           
+(* $44 - dla jmp,jsr to jest tryb absolute!*)
+let zeropage_p : (address_mode * (int32 list)) parser = 
+  number_p <* new_line_p >>= fun n -> 
+                              if n <= 255 then return (ZeroPage, (number_to_list n ())) 
+                              else
+                                fail "-" 
 
 (* ------- *)
 let implict_p : (address_mode * (int32 list)) parser = 
@@ -521,38 +558,55 @@ let implict_p : (address_mode * (int32 list)) parser =
 (* ($4400) *)
 let indirect_p : (address_mode * (int32 list)) parser = 
   is_a(Tok_OBra) *> number_p <* is_a(Tok_CBra) <* new_line_p >>= fun n -> 
-                              return (Indirect, (number_to_list n))
+                              return (Indirect, (number_to_list n ~list_size:2 ()))
+
+(* $44,X *)
+let x_indexed_zeropage_p : (address_mode * (int32 list)) parser = 
+  number_p <* is_a(Tok_Coma) <* (is_a(Tok_Word "X") <|> is_a(Tok_Word "x")) <* new_line_p >>= fun n -> 
+  if n <= 255 then return (ZeroPageXIndexed, (number_to_list n ())) 
+  else
+    fail "-"
+
 
 (* $4400,X *)
-let x_indexed_p : (address_mode * (int32 list)) parser = 
+let x_indexed_absolute_p : (address_mode * (int32 list)) parser = 
   number_p <* is_a(Tok_Coma) <* (is_a(Tok_Word "X") <|> is_a(Tok_Word "x")) <* new_line_p >>= fun n -> 
-  if n <= 255 then return (ZeroPageXIndexed, (number_to_list n)) 
+  if n > 255 then return (AbsoluteXIndexed, (number_to_list n ())) 
   else
-    return (AbsoluteXIndexed, (number_to_list n)) 
+    fail "-"
+
+(* $44,Y *)
+let y_indexed_zeropage_p : (address_mode * (int32 list)) parser = 
+  number_p <* is_a(Tok_Coma) <* (is_a(Tok_Word "Y") <|> is_a(Tok_Word "y")) <* new_line_p >>= fun n -> 
+  if n <= 255 then return (ZeroPageYIndexed, (number_to_list n ())) 
+  else
+    fail "-"
+
 
 (* $4400,Y *)
-let y_indexed_p : (address_mode * (int32 list)) parser = 
-  number_p <* (is_a(Tok_Coma) <* (is_a(Tok_Word "Y") <|> is_a(Tok_Word "y"))) <* new_line_p >>= fun n -> 
-  if n <= 255 then return (ZeroPageYIndexed, (number_to_list n)) 
+let y_indexed_absolute_p : (address_mode * (int32 list)) parser = 
+  number_p <* is_a(Tok_Coma) <* (is_a(Tok_Word "Y") <|> is_a(Tok_Word "y")) <* new_line_p >>= fun n -> 
+  if n > 255 then return (AbsoluteYIndexed, (number_to_list n ())) 
   else
-    return (AbsoluteYIndexed, (number_to_list n)) 
+    fail "-"
+
+
 
 (* ($44, X) *)
 let x_indexed_indirect_p : (address_mode * (int32 list)) parser = 
   is_a(Tok_OBra) *> number_p <* is_a(Tok_Coma) <* (is_a(Tok_Word "X") <|> is_a(Tok_Word "x")) <* is_a(Tok_CBra) <* new_line_p >>= fun n -> 
-  if n <= 255 then return (XIndexedIndirect, (number_to_list n)) 
+  if n <= 255 then return (XIndexedIndirect, (number_to_list n ())) 
   else
     fail "Only byte size number allowed here"
 
 (* ($44),Y *)
 let indirect_y_indexed_p : (address_mode * (int32 list)) parser = 
   is_a(Tok_OBra) *> number_p  <* is_a(Tok_CBra) <* is_a(Tok_Coma) <* (is_a(Tok_Word "Y") <|> is_a(Tok_Word "y")) <* new_line_p >>= fun n -> 
-  if n <= 255 then return (IndirectYIndexed, (number_to_list n)) 
+  if n <= 255 then return (IndirectYIndexed, (number_to_list n ())) 
   else
     fail "Only byte size number allowed here"
 
 
-(* XIndexedIndirect *)
 
 (*
 (int32 option) list -> może mieć niewypełnione elementy
@@ -573,26 +627,27 @@ let instruction_p : inst_line parser = {
 
   run = fun input -> input |> ( 
 
-    word_p <*> (
+          (word_p <*> immediate_p                 <*> (inc_bcount_p 2))
+      <|> (word_t("JMP") <*> absolute_force_p     <*> (inc_bcount_p 3)) (* jmp, jsr always have absolute mode *)
+      <|> (word_t("JSR") <*> absolute_force_p     <*> (inc_bcount_p 3))
+      <|> (word_p        <*> absolute_p           <*> (inc_bcount_p 3))
+      <|> (word_p        <*> zeropage_p           <*> (inc_bcount_p 2))
+      <|> (word_p        <*> implict_p            <*> (inc_bcount_p 1))
+      <|> (word_p        <*> indirect_p           <*> (inc_bcount_p 3))
+      <|> (word_p        <*> x_indexed_absolute_p <*> (inc_bcount_p 3))
+      <|> (word_p        <*> x_indexed_zeropage_p <*> (inc_bcount_p 2))      
+      <|> (word_p        <*> y_indexed_absolute_p <*> (inc_bcount_p 3))
+      <|> (word_p        <*> y_indexed_zeropage_p <*> (inc_bcount_p 2))      
+      <|> (word_p        <*> x_indexed_indirect_p <*> (inc_bcount_p 2))
+      <|> (word_p        <*> indirect_y_indexed_p <*> (inc_bcount_p 2))
 
-          immediate_p 
-      <|> absolute_or_zeropage_p 
-      <|> implict_p 
-      <|> indirect_p 
-      <|> x_indexed_p 
-      <|> y_indexed_p 
-      <|> x_indexed_indirect_p 
-      <|> indirect_y_indexed_p
-
-    ) >>= fun (opcode, found_argument) -> 
-      let (addrmode, int_list) = found_argument in
+     >>= fun ((opcode,operand), _) -> 
+      let (addrmode, int_list) = operand in
       let found_opcode : int =
         (List.fold_left (
           fun a (i : instruction) -> 
-            if ((String.compare i.desc (String.uppercase_ascii opcode) = 0) && i.addrmode = addrmode) then 
-            i.code 
-            else 
-              a
+            if ((String.compare i.desc (String.uppercase_ascii opcode) = 0) && i.addrmode = addrmode) 
+            then i.code else a
           ) 255 instructions
         )
       in
@@ -605,24 +660,27 @@ let instruction_p : inst_line parser = {
 (* zeroOrMore *)
 let inst_line_p : (inst_line list) parser =
 
-      many (
-      new_line_p <|>
-      (instruction_p) <|>
-      (label_p <* new_line_p) <|>
-      ((label_p <*> instruction_p) >>= fun (a,b) -> 
-        match a with 
-        |Label l->(match b with 
-                  | Instr i-> return (Label_Instr (l, i))
-                  | _ -> fail "Instruction expected but got"
-                  )
-        |_-> fail "Label and instruction expected but got"
-      ))
+  oneOrMore (
+
+    new_line_p <|>
+    (instruction_p) <|>
+    (label_p <* new_line_p) <|>
+    ((label_p <*> instruction_p) >>= fun (a,b) -> 
+      match a with 
+      |Label (s, v)->(match b with 
+                | Instr i-> return (Label_Instr (s, v, i))
+                | _ -> fail "Instruction expected but got"
+                )
+      |_-> fail "Label and instruction expected but got"
+    )
+    
+  )
 
 
 
 
 let run (p: 'a parser) (t: token array ref): ('a, error) result =
-  match {tokens = t; pos = 0} |> p.run with
+  match (input_rec t 0 0) |> p.run with
   | _     , Ok x    -> Ok x
   | input', Error desc -> Error {pos = input'.pos; desc = desc; }
 

@@ -184,18 +184,5 @@ let tokensn2str (tokens: token array ref) (subt:int * int) : string =
   ) !tokens;
   !acc
 
-
-
-
-
-(* 
-let tok_list = ref [];;
-
-let setTokens t = 
-  tok_list := t *)
-
 let showTokens (a : token array ref) =
   Printf.printf "Tokens: %s\n" (tokens2str a)
-
-
-(* parser *)
