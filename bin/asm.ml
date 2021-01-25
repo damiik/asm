@@ -79,7 +79,9 @@ __vinit:
 
 (* showTokens ( tokens_arr );; *)
 match (inst_line_p.run (set_state (ref (Array.of_list (tokenize 
-{|  BNE l1
+{| l0: INY
+		BEQ l0
+		BNE l1
 		LDA $10
 		CMP $4401
 l1: JMP $09
@@ -87,7 +89,7 @@ l1: JMP $09
 (* | Ok (pos, len), a ->  
                   Printf.printf "Ok at: %d  length: %d\n%s" pos len (tokensn2str tokens_arr (pos, len))*)
 | state, Ok a -> 
-	 	List.iter (fun l -> Printf.printf "label:%s %d\n" l.name l.value ) state.labels;
+	 	List.iter (fun l -> Printf.printf "label:%s %d\n" l.name l.value) state.labels;
 		Printf.printf "Success with %s" (instr_list2string a);
 | _, Error e -> Printf.printf "Error %s" e
 

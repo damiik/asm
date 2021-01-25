@@ -655,7 +655,7 @@ let inst_line_p : (inst_line list) parser =
                   | Absolute -> 
                       Printf.printf "Absolute %d\n" (List.length s.labels);
                       (match get_label d.identifier s.labels with 
-                      | Some label_pos -> Instr {opcode = x.opcode; operand = (Fixed ((label_pos - (d.count_pos + 3)) |> int2List2B))}
+                      | Some label_pos -> Instr {opcode = x.opcode; operand = (Fixed (label_pos |> int2List2B))}
                       | None -> Instr x)
                   | _ ->  Instr {opcode= x.opcode; operand= (Fixed [])}
                   )
