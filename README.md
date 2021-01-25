@@ -1,5 +1,7 @@
 # asm
-My experimental 6502 processor assembler in Ocaml with monadic parser described here https://www.cs.nott.ac.uk/~pszgmh/monparsing.pdf. As input to parser I used tokens from lexer, not a string of text like in mentioned documet. This simple solution lets me to forget about whitespaces and comments in parser grammar.
+My experimental 6502 processor assembler in Ocaml with monadic parser described here: https://www.cs.nott.ac.uk/~pszgmh/monparsing.pdf. 
+This program was inspired mainly by Tsoding: https://github.com/tsoding/parcoom
+As input to parser I used tokens from lexer and this simple solution lets me to forget about white spaces and comments in parser grammar.
 ---------------------
   ## testing with utop:
   * dune test
