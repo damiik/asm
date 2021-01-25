@@ -62,27 +62,29 @@ __vinit:
 |} 
 ;;
 
-let a = "2+5*(-%0001001010+3)-8"
+(* let a = "2+5*(-%0001001010+3)-8" *)
 (* "$125/10-2*$ff z" *)
 
-let tokens_arr = ref (Array.of_list (tokenize a))  ;;
+(* let a = inst_line_p.run (input_rec (ref (Array.of_list (tokenize ""))) 0 0);; *)
+
 
 (* (if( (Array.length Sys.argv) > 0) then (Sys.argv.(1)) else a)));; *)
 
 
 
-showTokens ( tokens_arr );;
-match (P.run (
-
-    (* ((prefix (Tok_Mul::[])) <|> (prefix (Tok_Sum::[]))) <*> (prefix (Tok_Mul::[])) *)
-    (* (prefix ((Tok_Char 'b')::[]) <*> prefix ((Tok_Word "girl")::[])) >>= fun (a,b) -> return b  *)
-    bind exp_p ( fun a -> P.return a)
-  
-  ) ( tokens_arr )) with
+(* showTokens ( tokens_arr );; *)
+match (inst_line_p.run (set_state (ref (Array.of_list (tokenize 
+{|  BNE l1
+		LDA $10
+		CMP $4401
+l1: JMP $09
+|} ))) 0 0 [] [])) with
 (* | Ok (pos, len), a ->  
                   Printf.printf "Ok at: %d  length: %d\n%s" pos len (tokensn2str tokens_arr (pos, len))*)
-| Ok a -> Printf.printf "Success with  %d" (P.eval a)
-| Error e -> Printf.printf "Error %s" e.desc
+| state, Ok a -> 
+	 	List.iter (fun l -> Printf.printf "label:%s %d\n" l.name l.value ) state.labels;
+		Printf.printf "Success with %s" (instr_list2string a);
+| _, Error e -> Printf.printf "Error %s" e
 
 
 (* Printf.printf "%d" (eval (Parser.parse_E ()) );; *)

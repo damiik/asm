@@ -1,6 +1,5 @@
 # asm
-My experimental 6502 processor assembler in Ocaml with monadic parser.
-As input to parser I used tokens from lexer, not just string like described in paper here https://www.cs.nott.ac.uk/~pszgmh/monparsing.pdf. This simple solution lets me to forget about whitespaces and comments in parser grammar.
+My experimental 6502 processor assembler in Ocaml with monadic parser described here https://www.cs.nott.ac.uk/~pszgmh/monparsing.pdf. As input to parser I used tokens from lexer, not a string of text like in mentioned documet. This simple solution lets me to forget about whitespaces and comments in parser grammar.
 ---------------------
   ## testing in utop:
  * utop>> `#load "str.cma";;`
@@ -12,4 +11,4 @@ As input to parser I used tokens from lexer, not just string like described in p
   ## testing with dune:
  * `dune utop ./lib`
  * utop>> `#use "./lib/parser.ml";;`
- * utop>> `inst_line_p.run {tokens= ref (Array.of_list (tokenize "CMP $4401,X\n")) ; pos= 0};;`
+ * utop>> `inst_line_p.run (set_state (ref (Array.of_list (tokenize "JMP $09\nCMP $4401,X\nl1: LDA $1000\n"))) 0 0 [] []);;[$%02X]`

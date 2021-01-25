@@ -1,10 +1,10 @@
-type c6502_opcode = 
+(* type c6502_opcode = 
   | ADC  | AND  | ASL  | BCC  | BCS  | BEQ  | BIT  | BMI  | BNE  | BPL  | BRK  | BVC  | BVS  | CLC  | CLD  | CLI  | CLV
   | CMP  | CPX  | CPY  | DEC  | DEX  | DEY  | EOR  | INC  | INX  | INY  | JMP  | JSR  | LDA  | LDX  | LDY  | LSR  | NOP
   | ORA  | PHA  | PHP  | PLA  | PLP  | ROL  | ROR  | RTI  | RTS  | SBC  | SEC  | SED  | SEI  | STA  | STX  | STY  | TAX
-  | TAY  | TSX  | TXA  | TXS  | TYA
+  | TAY  | TSX  | TXA  | TXS  | TYA *)
 
-type address_mode = 
+type address_mode_t = 
   | Immediate         
   | Relative          
   | ZeroPage          
@@ -18,6 +18,25 @@ type address_mode =
   | Indirect          
   | Accumulator
   | Implicit
+
+
+let address_mode2string m = 
+  match m with
+  | Immediate -> "IME"         
+  | Relative -> "REL"          
+  | ZeroPage -> "ZPA"          
+  | ZeroPageXIndexed -> "ZXI"  
+  | ZeroPageYIndexed -> "ZYI" 
+  | XIndexedIndirect -> "XII" 
+  | IndirectYIndexed -> "IYI" 
+  | Absolute -> "ABS"          
+  | AbsoluteXIndexed -> "AXI"  
+  | AbsoluteYIndexed -> "AYI"  
+  | Indirect -> "IND"          
+  | Accumulator -> "ACC"
+  | Implicit -> "IMP"
+
+
 
 (*
 type address_mode_desc = {
@@ -45,165 +64,167 @@ let address_mode_descs: address_mode_desc list = [
   (mkAdrrMod Implicit         ); (* 1 ""*)
 ] *)
 
-type instruction = {
+type instruction_code_t = {
 
-  opcode   : c6502_opcode;
-  desc     : string;
-  addrmode : address_mode;
-  code     : int;
+  (* opcode   : c6502_opcode; *)
+  opcode       : string;
+  address_mode : address_mode_t;
+  code         : int;
 }
 
-let mkInstr o d a c = {opcode=o; desc=d; addrmode=a; code=c}
-let instructions : instruction list = [
-    (mkInstr BRK "BRK" Implicit         0);
-    (mkInstr ORA "ORA" XIndexedIndirect 1);
-    (mkInstr ORA "ORA" ZeroPage         5);
-    (mkInstr ASL "ASL" ZeroPage         6);
-    (mkInstr PHP "PHP" Implicit         8);
-    (mkInstr ORA "ORA" Immediate        9);
-    (mkInstr ASL "ASL" Accumulator      10);
-    (mkInstr ORA "ORA" Absolute         13);
-    (mkInstr ASL "ASL" Absolute         14);
-    (mkInstr BPL "BPL" Relative         16);
-    (mkInstr ORA "ORA" IndirectYIndexed 17);
-    (mkInstr ORA "ORA" ZeroPageXIndexed 21);
-    (mkInstr ASL "ASL" ZeroPageXIndexed 22);
-    (mkInstr CLC "CLC" Implicit         24);
-    (mkInstr ORA "ORA" AbsoluteYIndexed 25);
-    (mkInstr ORA "ORA" AbsoluteXIndexed 29);
-    (mkInstr ASL "ASL" AbsoluteXIndexed 30);
-    (mkInstr JSR "JSR" Absolute         32);
-    (mkInstr AND "AND" XIndexedIndirect 33);
-    (mkInstr BIT "BIT" ZeroPage         36);
-    (mkInstr AND "AND" ZeroPage         37);
-    (mkInstr ROL "ROL" ZeroPage         38);
-    (mkInstr PLP "PLP" Implicit         40);
-    (mkInstr AND "AND" Immediate        41);
-    (mkInstr ROL "ROL" Accumulator      42);
-    (mkInstr BIT "BIT" Absolute         44);
-    (mkInstr AND "AND" Absolute         45);
-    (mkInstr ROL "ROL" Absolute         46);
-    (mkInstr BMI "BMI" Relative         48);
-    (mkInstr AND "AND" IndirectYIndexed 49);
-    (mkInstr AND "AND" ZeroPageXIndexed 53);
-    (mkInstr ROL "ROL" ZeroPageXIndexed 54);
-    (mkInstr SEC "SEC" Implicit         56);
-    (mkInstr AND "AND" AbsoluteYIndexed 57);
-    (mkInstr AND "AND" AbsoluteXIndexed 61);
-    (mkInstr ROL "ROL" AbsoluteXIndexed 62);
-    (mkInstr RTI "RTI" Implicit         64);
-    (mkInstr EOR "EOR" XIndexedIndirect 65);
-    (mkInstr EOR "EOR" ZeroPage         69);
-    (mkInstr LSR "LSR" ZeroPage         70);
-    (mkInstr PHA "PHA" Implicit         72);
-    (mkInstr EOR "EOR" Immediate        73);
-    (mkInstr LSR "LSR" Accumulator      74);
-    (mkInstr JMP "JMP" Absolute         76);
-    (mkInstr EOR "EOR" Absolute         77);
-    (mkInstr LSR "LSR" Absolute         78);
-    (mkInstr BVC "BVC" Relative         80);
-    (mkInstr EOR "EOR" IndirectYIndexed 81);
-    (mkInstr EOR "EOR" ZeroPageXIndexed 85);
-    (mkInstr LSR "LSR" ZeroPageXIndexed 86);
-    (mkInstr CLI "CLI" Implicit         88);
-    (mkInstr EOR "EOR" AbsoluteYIndexed 89);
-    (mkInstr EOR "EOR" AbsoluteXIndexed 93);
-    (mkInstr LSR "LSR" AbsoluteXIndexed 94);
-    (mkInstr RTS "RTS" Implicit         96);
-    (mkInstr ADC "ADC" XIndexedIndirect 97);
-    (mkInstr ADC "ADC" ZeroPage         101);
-    (mkInstr ROR "ROR" ZeroPage         102);
-    (mkInstr PLA "PLA" Implicit         104);
-    (mkInstr ADC "ADC" Immediate        105);
-    (mkInstr ROR "ROR" Accumulator      106);
-    (mkInstr JMP "JMP" Indirect         108);
-    (mkInstr ADC "ADC" Absolute         109);
-    (mkInstr ROR "ROR" Absolute         110);
-    (mkInstr BVS "BVS" Relative         112);
-    (mkInstr ADC "ADC" IndirectYIndexed 113);
-    (mkInstr ADC "ADC" ZeroPageXIndexed 117);
-    (mkInstr ROR "ROR" ZeroPageXIndexed 118);
-    (mkInstr SEI "SEI" Implicit         120);
-    (mkInstr ADC "ADC" AbsoluteYIndexed 121);
-    (mkInstr ADC "ADC" AbsoluteXIndexed 125);
-    (mkInstr ROR "ROR" AbsoluteXIndexed 126);
-    (mkInstr STA "STA" XIndexedIndirect 129);
-    (mkInstr STY "STY" ZeroPage         132);
-    (mkInstr STA "STA" ZeroPage         133);
-    (mkInstr STX "STX" ZeroPage         134);
-    (mkInstr DEY "DEY" Implicit         136);
-    (mkInstr TXA "TXA" Implicit         138);
-    (mkInstr STY "STY" Absolute         140);
-    (mkInstr STA "STA" Absolute         141);
-    (mkInstr STX "STX" Absolute         142);
-    (mkInstr BCC "BCC" Relative         144);
-    (mkInstr STA "STA" IndirectYIndexed 145);
-    (mkInstr STY "STY" ZeroPageXIndexed 148);
-    (mkInstr STA "STA" ZeroPageXIndexed 149);
-    (mkInstr STX "STX" ZeroPageYIndexed 150);
-    (mkInstr TYA "TYA" Implicit         152);
-    (mkInstr STA "STA" AbsoluteYIndexed 153);
-    (mkInstr TXS "TXS" Implicit         154);
-    (mkInstr STA "STA" AbsoluteXIndexed 157);
-    (mkInstr LDY "LDY" Immediate        160);
-    (mkInstr LDA "LDA" XIndexedIndirect 161);
-    (mkInstr LDX "LDX" Immediate        162);
-    (mkInstr LDY "LDY" ZeroPage         164);
-    (mkInstr LDA "LDA" ZeroPage         165);
-    (mkInstr LDX "LDX" ZeroPage         166);
-    (mkInstr TAY "TAY" Implicit         168);
-    (mkInstr LDA "LDA" Immediate        169);
-    (mkInstr TAX "TAX" Implicit         170);
-    (mkInstr LDY "LDY" Absolute         172);
-    (mkInstr LDA "LDA" Absolute         173);
-    (mkInstr LDX "LDX" Absolute         174);
-    (mkInstr BCS "BCS" Relative         176);
-    (mkInstr LDA "LDA" IndirectYIndexed 177);
-    (mkInstr LDY "LDY" ZeroPageXIndexed 180);
-    (mkInstr LDA "LDA" ZeroPageXIndexed 181);
-    (mkInstr LDX "LDX" ZeroPageYIndexed 182);
-    (mkInstr CLV "CLV" Implicit         184);
-    (mkInstr LDA "LDA" AbsoluteYIndexed 185);
-    (mkInstr TSX "TSX" Implicit         186);
-    (mkInstr LDY "LDY" AbsoluteXIndexed 188);
-    (mkInstr LDA "LDA" AbsoluteXIndexed 189);
-    (mkInstr LDX "LDX" AbsoluteYIndexed 190);
-    (mkInstr CPY "CPY" Immediate        192);
-    (mkInstr CMP "CMP" XIndexedIndirect 193);
-    (mkInstr CPY "CPY" ZeroPage         196);
-    (mkInstr CMP "CMP" ZeroPage         197);
-    (mkInstr DEC "DEC" ZeroPage         198);
-    (mkInstr INY "INY" Implicit         200);
-    (mkInstr CMP "CMP" Immediate        201);
-    (mkInstr DEX "DEX" Implicit         202);
-    (mkInstr CPY "CPY" Absolute         204);
-    (mkInstr CMP "CMP" Absolute         205);
-    (mkInstr DEC "DEC" Absolute         206);
-    (mkInstr BNE "BNE" Relative         208);
-    (mkInstr CMP "CMP" IndirectYIndexed 209);
-    (mkInstr CMP "CMP" ZeroPageXIndexed 213);
-    (mkInstr DEC "DEC" ZeroPageXIndexed 214);
-    (mkInstr CLD "CLD" Implicit         216);
-    (mkInstr CMP "CMP" AbsoluteYIndexed 217);
-    (mkInstr CMP "CMP" AbsoluteXIndexed 221);
-    (mkInstr DEC "DEC" AbsoluteXIndexed 222);
-    (mkInstr CPX "CPX" Immediate        224);
-    (mkInstr SBC "SBC" XIndexedIndirect 225);
-    (mkInstr CPX "CPX" ZeroPage         228);
-    (mkInstr SBC "SBC" ZeroPage         229);
-    (mkInstr INC "INC" ZeroPage         230);
-    (mkInstr INX "INX" Implicit         232);
-    (mkInstr SBC "SBC" Immediate        233);
-    (mkInstr NOP "NOP" Implicit         234);
-    (mkInstr CPX "CPX" Absolute         236);
-    (mkInstr SBC "SBC" Absolute         237);
-    (mkInstr INC "INC" Absolute         238);
-    (mkInstr BEQ "BEQ" Relative         240);
-    (mkInstr SBC "SBC" IndirectYIndexed 241);
-    (mkInstr SBC "SBC" ZeroPageXIndexed 245);
-    (mkInstr INC "INC" ZeroPageXIndexed 246);
-    (mkInstr SED "SED" Implicit         248);
-    (mkInstr SBC "SBC" AbsoluteYIndexed 249);
-    (mkInstr SBC "SBC" AbsoluteXIndexed 253);
-    (mkInstr INC "INC" AbsoluteXIndexed 254);
-]
+(* let mkInstrC o a c = {opcode=o; address_mode=a; code=c} *)
+let get_instruction opcode_str =
+
+  match opcode_str with
+    | "BRK", Implicit ->          0
+    | "ORA", XIndexedIndirect ->  1
+    | "ORA", ZeroPage ->          5
+    | "ASL", ZeroPage ->          6
+    | "PHP", Implicit ->          8
+    | "ORA", Immediate ->         9
+    | "ASL", Accumulator ->       10
+    | "ORA", Absolute ->          13
+    | "ASL", Absolute ->          14
+    | "BPL", Relative ->          16
+    | "ORA", IndirectYIndexed ->  17
+    | "ORA", ZeroPageXIndexed ->  21
+    | "ASL", ZeroPageXIndexed ->  22
+    | "CLC", Implicit ->          24
+    | "ORA", AbsoluteYIndexed ->  25
+    | "ORA", AbsoluteXIndexed ->  29
+    | "ASL", AbsoluteXIndexed ->  30
+    | "JSR", Absolute ->          32
+    | "AND", XIndexedIndirect ->  33
+    | "BIT", ZeroPage ->          36
+    | "AND", ZeroPage ->          37
+    | "ROL", ZeroPage ->          38
+    | "PLP", Implicit ->          40
+    | "AND", Immediate ->         41
+    | "ROL", Accumulator ->       42
+    | "BIT", Absolute ->          44
+    | "AND", Absolute ->          45
+    | "ROL", Absolute ->          46
+    | "BMI", Relative ->          48
+    | "AND", IndirectYIndexed ->  49
+    | "AND", ZeroPageXIndexed ->  53
+    | "ROL", ZeroPageXIndexed ->  54
+    | "SEC", Implicit ->          56
+    | "AND", AbsoluteYIndexed ->  57
+    | "AND", AbsoluteXIndexed ->  61
+    | "ROL", AbsoluteXIndexed ->  62
+    | "RTI", Implicit ->          64
+    | "EOR", XIndexedIndirect ->  65
+    | "EOR", ZeroPage ->          69
+    | "LSR", ZeroPage ->          70
+    | "PHA", Implicit ->          72
+    | "EOR", Immediate ->         73
+    | "LSR", Accumulator ->       74
+    | "JMP", Absolute ->          76
+    | "EOR", Absolute ->          77
+    | "LSR", Absolute ->          78
+    | "BVC", Relative ->          80
+    | "EOR", IndirectYIndexed ->  81
+    | "EOR", ZeroPageXIndexed ->  85
+    | "LSR", ZeroPageXIndexed ->  86
+    | "CLI", Implicit ->          88
+    | "EOR", AbsoluteYIndexed ->  89
+    | "EOR", AbsoluteXIndexed ->  93
+    | "LSR", AbsoluteXIndexed ->  94
+    | "RTS", Implicit ->          96
+    | "ADC", XIndexedIndirect ->  97
+    | "ADC", ZeroPage ->          101
+    | "ROR", ZeroPage ->          102
+    | "PLA", Implicit ->          104
+    | "ADC", Immediate ->         105
+    | "ROR", Accumulator ->       106
+    | "JMP", Indirect ->          108
+    | "ADC", Absolute ->          109
+    | "ROR", Absolute ->          110
+    | "BVS", Relative ->          112
+    | "ADC", IndirectYIndexed ->  113
+    | "ADC", ZeroPageXIndexed ->  117
+    | "ROR", ZeroPageXIndexed ->  118
+    | "SEI", Implicit ->          120
+    | "ADC", AbsoluteYIndexed ->  121
+    | "ADC", AbsoluteXIndexed ->  125
+    | "ROR", AbsoluteXIndexed ->  126
+    | "STA", XIndexedIndirect ->  129
+    | "STY", ZeroPage ->          132
+    | "STA", ZeroPage ->          133
+    | "STX", ZeroPage ->          134
+    | "DEY", Implicit ->          136
+    | "TXA", Implicit ->          138
+    | "STY", Absolute ->          140
+    | "STA", Absolute ->          141
+    | "STX", Absolute ->          142
+    | "BCC", Relative ->          144
+    | "STA", IndirectYIndexed ->  145
+    | "STY", ZeroPageXIndexed ->  148
+    | "STA", ZeroPageXIndexed ->  149
+    | "STX", ZeroPageYIndexed ->  150
+    | "TYA", Implicit ->          152
+    | "STA", AbsoluteYIndexed ->  153
+    | "TXS", Implicit ->          154
+    | "STA", AbsoluteXIndexed ->  157
+    | "LDY", Immediate ->         160
+    | "LDA", XIndexedIndirect ->  161
+    | "LDX", Immediate ->         162
+    | "LDY", ZeroPage ->          164
+    | "LDA", ZeroPage ->          165
+    | "LDX", ZeroPage ->          166
+    | "TAY", Implicit ->          168
+    | "LDA", Immediate ->         169
+    | "TAX", Implicit ->          170
+    | "LDY", Absolute ->          172
+    | "LDA", Absolute ->          173
+    | "LDX", Absolute ->          174
+    | "BCS", Relative ->          176
+    | "LDA", IndirectYIndexed ->  177
+    | "LDY", ZeroPageXIndexed ->  180
+    | "LDA", ZeroPageXIndexed ->  181
+    | "LDX", ZeroPageYIndexed ->  182
+    | "CLV", Implicit ->          184
+    | "LDA", AbsoluteYIndexed ->  185
+    | "TSX", Implicit ->          186
+    | "LDY", AbsoluteXIndexed ->  188
+    | "LDA", AbsoluteXIndexed ->  189
+    | "LDX", AbsoluteYIndexed ->  190
+    | "CPY", Immediate ->         192
+    | "CMP", XIndexedIndirect ->  193
+    | "CPY", ZeroPage ->          196
+    | "CMP", ZeroPage ->          197
+    | "DEC", ZeroPage ->          198
+    | "INY", Implicit ->          200
+    | "CMP", Immediate ->         201
+    | "DEX", Implicit ->          202
+    | "CPY", Absolute ->          204
+    | "CMP", Absolute ->          205
+    | "DEC", Absolute ->          206
+    | "BNE", Relative ->          208
+    | "CMP", IndirectYIndexed ->  209
+    | "CMP", ZeroPageXIndexed ->  213
+    | "DEC", ZeroPageXIndexed ->  214
+    | "CLD", Implicit ->          216
+    | "CMP", AbsoluteYIndexed ->  217
+    | "CMP", AbsoluteXIndexed ->  221
+    | "DEC", AbsoluteXIndexed ->  222
+    | "CPX", Immediate ->         224
+    | "SBC", XIndexedIndirect ->  225
+    | "CPX", ZeroPage ->          228
+    | "SBC", ZeroPage ->          229
+    | "INC", ZeroPage ->          230
+    | "INX", Implicit ->          232
+    | "SBC", Immediate ->         233
+    | "NOP", Implicit ->          234
+    | "CPX", Absolute ->          236
+    | "SBC", Absolute ->          237
+    | "INC", Absolute ->          238
+    | "BEQ", Relative ->          240
+    | "SBC", IndirectYIndexed ->  241
+    | "SBC", ZeroPageXIndexed ->  245
+    | "INC", ZeroPageXIndexed ->  246
+    | "SED", Implicit ->          248
+    | "SBC", AbsoluteYIndexed ->  249
+    | "SBC", AbsoluteXIndexed ->  253
+    | "INC", AbsoluteXIndexed ->  254
+    | _ -> 255

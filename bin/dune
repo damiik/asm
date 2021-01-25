@@ -2,7 +2,10 @@
     (name asm)
     (libraries parser tokenizer str)
     ; (preprocess (pps ppx_deriving.show))
+    (public_name asm)    
+     (package parser)
     )
+
 
 ;  (install
 ;     (package parser)
