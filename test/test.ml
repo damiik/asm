@@ -1,3 +1,7 @@
+(* 
+asm - Copyright (c) 2020 Dariusz Mikołajczyk 
+*)
+
 open Tokenizer
 open Parser
 
@@ -80,7 +84,7 @@ let test_suite_instr = List.map quickcase [
                                 LDA $10
                                 CMP $4401
                             l1: JMP $09
-                        |} [mk_instr 0xD0 [0x05]; mk_instr 0xA5 [0x10]; mk_instr 0xCD [0x01; 0x44]; mk_lab_instr "l1:" 7 0x4C [0x09; 0x00]];
+                        |} [mk_lab_instr "l0:" 0 0xC8 []; mk_instr 0xF0 [0xFD];mk_instr 0xD0 [0x05]; mk_instr 0xA5 [0x10]; mk_instr 0xCD [0x01; 0x44]; mk_lab_instr "l1:" 10 0x4C [0x09; 0x00]];
                          
       )
     );

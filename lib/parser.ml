@@ -1,32 +1,10 @@
 
-(* module T = Tokenizer *)
-open Tokenizer
-(* module C = C6502instr *)
-open C6502instr
-
-(* open C6502instr *)
-
 (* 
-testing in utop:
-
-  #load "str.cma";;
-  #use "./parser.ml";;
-  exp_p.run {tokens= ref (Array.of_list (tokenize "1203*2+5*10  ss")) ; pos= 0};;
-  exp_p.run {tokens= ref (Array.of_list (tokenize "(2+(5*3))-8")) ; pos= 0};;
-  exp_p.run {tokens= ref (Array.of_list (tokenize "2+5*-(-%0001001010+3)-8")) ; pos= 0};;
-
-
-
-with dune:
-  dune utop ./lib
-  #use "./lib/parser.ml";;  
-  inst_line_p.run {tokens= ref (Array.of_list (tokenize "CMP $4401,X\n")) ; pos= 0};;
-
-
-
-  #load "./_build/default/lib/tokenizer/tokenizer.cma";;
-  #load "./_build/default/lib/parser.cma";;
+asm - Copyright (c) 2020 Dariusz Mikołajczyk 
 *)
+
+open Tokenizer
+open C6502instr
 
 exception ParserError of string
 

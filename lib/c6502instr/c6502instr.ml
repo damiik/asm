@@ -1,8 +1,6 @@
-(* type c6502_opcode = 
-  | ADC  | AND  | ASL  | BCC  | BCS  | BEQ  | BIT  | BMI  | BNE  | BPL  | BRK  | BVC  | BVS  | CLC  | CLD  | CLI  | CLV
-  | CMP  | CPX  | CPY  | DEC  | DEX  | DEY  | EOR  | INC  | INX  | INY  | JMP  | JSR  | LDA  | LDX  | LDY  | LSR  | NOP
-  | ORA  | PHA  | PHP  | PLA  | PLP  | ROL  | ROR  | RTI  | RTS  | SBC  | SEC  | SED  | SEI  | STA  | STX  | STY  | TAX
-  | TAY  | TSX  | TXA  | TXS  | TYA *)
+(* 
+asm - Copyright (c) 2020 Dariusz Mikołajczyk 
+*)
 
 type address_mode_t = 
   | Immediate         
@@ -36,43 +34,13 @@ let address_mode2string m =
   | Accumulator -> "ACC"
   | Implicit -> "IMP"
 
-
-
-(*
-type address_mode_desc = {
-  
-  mode: address_mode; 
-  desc: string;
-  size: int
-}
-
- let mkAdrrMod m s d = {mode= m; size = s; desc = d}
-let address_mode_descs: address_mode_desc list = [
-
-  (mkAdrrMod Immediate        ); (* 2 "#"*)
-  (mkAdrrMod ZeroPage         ); (* 2 "$44"*)
-  (mkAdrrMod ZeroPageXIndexed ); (* 2 "$44,X"*)
-  (mkAdrrMod ZeroPageYIndexed ); (* 2 "$44,X"*)
-  (mkAdrrMod Absolute         ); (* 3 "$4400"*)
-  (mkAdrrMod AbsoluteXIndexed ); (* 3 "$4400,X"*)
-  (mkAdrrMod AbsoluteYIndexed ); (* 3 "$4400,Y"*)
-  (mkAdrrMod XIndexedIndirect ); (* 2 "($44, X)"*)
-  (mkAdrrMod IndirectYIndexed ); (* 2 "($44),Y"*)
-  (mkAdrrMod Indirect         ); (* 2 "($5597)"*)
-  (mkAdrrMod Relative         ); (* 2 "label"*)
-  (mkAdrrMod Accumulator      ); (* 1 "A"*)
-  (mkAdrrMod Implicit         ); (* 1 ""*)
-] *)
-
 type instruction_code_t = {
 
-  (* opcode   : c6502_opcode; *)
   opcode       : string;
   address_mode : address_mode_t;
   code         : int;
 }
 
-(* let mkInstrC o a c = {opcode=o; address_mode=a; code=c} *)
 let get_instruction opcode_str =
 
   match opcode_str with

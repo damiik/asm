@@ -1,4 +1,6 @@
-(* open Str *)
+(* 
+asm - Copyright (c) 2020 Dariusz Mikołajczyk 
+*)
 
 
 exception TokenizerError of string
