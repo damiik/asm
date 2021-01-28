@@ -1,22 +1,20 @@
 (* 
 asm - Copyright (c) 2020 Dariusz Mikołajczyk 
 *)
-
 open Tokenizer
-open Parser
+open Mparser
+open Asmparser
 
-module T = Tokenizer
-module P = Parser
 module A = Alcotest
 
 let quickcase (descr, case) = A.test_case descr `Quick case 
 
 (* test expressions *)
-let my_expr_compare = (Alcotest.testable (fun ppf exp -> Fmt.pf ppf "expression %s" (P.exp2string exp))) P.exp_compare
 
+let my_expr_compare = exp_compare |> ((fun ppf exp -> Fmt.pf ppf "expression %s" (exp |> exp2string)) |> A.testable) 
 let checkparse_exp inp_s result = A.(check my_expr_compare) inp_s result (
 
-  match exp_p.run (set_state (ref (Array.of_list (tokenize inp_s))) 0 0 [] []) with
+  match (inp_s |> tokenize |> Array.of_list |> ref, 0, 0, [], []) |> set_state |> exp_p.run with
   | _, Ok expr -> expr
   | _, Error _ -> Null
 )
@@ -37,11 +35,11 @@ let test_suite_exp = List.map quickcase [
 (* test instructions *)
 
 
-let my_instr_list_compare = (Alcotest.testable (fun ppf exp -> Fmt.pf ppf "instruction %s" (P.instr_list2string exp))) P.instr_list_compare
+let my_instr_list_compare = instr_list_compare |> ((fun ppf exp -> Fmt.pf ppf "instruction %s" (exp |> instr_list2string)) |> A.testable) 
 
 let checkparse_instr inp_s result  = A.(check my_instr_list_compare) inp_s result (
 
-    match inst_line_p.run (set_state (ref (Array.of_list (tokenize inp_s))) 0 0 [] []) with
+    match (inp_s |> tokenize |> Array.of_list |> ref, 0, 0, [], []) |> set_state |> inst_line_p.run  with
     (* | (_,l) -> l *)
     | _, Ok instr -> instr
     | _, Error _ -> [Empty]

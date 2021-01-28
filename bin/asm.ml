@@ -4,10 +4,11 @@ asm - Copyright (c) 2020 Dariusz Mikołajczyk
 
 
 open Tokenizer
-open Parser
+open Mparser
+open Preprocess
+open Asmparser
 
-module T = Tokenizer
-module P = Parser
+
 let a1 = {|
 
 message: .byte "hello, my beautyfull world!"
@@ -78,14 +79,18 @@ __vinit:
 
 
 (* showTokens ( tokens_arr );; *)
-match (inst_line_p.run (set_state (ref (Array.of_list (tokenize 
-{| l0: INY
-		BEQ l0
-		BNE l1
-		LDA $10
-		CMP $4401
-l1: JMP $09
-|} ))) 0 0 [] [])) with
+match ((
+{|
+.equ bla (2*10)
+.equ qua 5
+
+lab0: INY
+			BEQ lab0
+			BNE lab1
+			LDA $10
+			CMP $4401
+lab1: JMP $09
+|} |> tokenize |> preprocess_tokens |> Array.of_list |> ref, 0, 0, [], []) |> set_state |> inst_line_p.run)  with
 (* | Ok (pos, len), a ->  
                   Printf.printf "Ok at: %d  length: %d\n%s" pos len (tokensn2str tokens_arr (pos, len))*)
 | state, Ok a -> 

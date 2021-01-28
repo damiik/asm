@@ -1,4 +1,4 @@
 (test 
     (name test) 
-    (libraries parser alcotest)
-    (package parser))
+    (libraries asmparser alcotest)
+    (package asmparser))

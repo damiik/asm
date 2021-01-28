@@ -12,8 +12,9 @@ B /home/damii/.opam/default/lib/uchar
 B /home/damii/.opam/default/lib/uuidm
 B /home/damii/.opam/default/lib/uutf
 B /usr/lib/ocaml
-B ../_build/default/lib/.parser.objs/byte
+B ../_build/default/lib/.asmparser.objs/byte
 B ../_build/default/lib/c6502instr/.c6502instr.objs/byte
+B ../_build/default/lib/mparser/.mparser.objs/byte
 B ../_build/default/lib/tokenizer/.tokenizer.objs/byte
 B ../_build/default/test/.test.eobjs/byte
 S /home/damii/.opam/default/lib/alcotest
@@ -31,6 +32,7 @@ S /home/damii/.opam/default/lib/uutf
 S /usr/lib/ocaml
 S ../lib
 S ../lib/c6502instr
+S ../lib/mparser
 S ../lib/tokenizer
 S .
 FLG -w @1..3@5..28@30..39@43@46..47@49..57@61..62-40 -strict-sequence -strict-formats -short-paths -keep-locs

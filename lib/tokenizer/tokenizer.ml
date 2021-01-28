@@ -20,7 +20,7 @@ type token =
   | Tok_Char of char
   | Tok_NewL
   | Tok_Label of string  (* abc:  *)
-  | Tok_KeyW of string   (* .abc  *)
+  | Tok_Direct of string (* .abc  *)
   | Tok_String of string (* "abc" *)
   | Tok_End
 
@@ -90,7 +90,7 @@ let tokenize str =
     else if (Str.string_match (Str.regexp "\\.[a-zA-Z_]+") s pos) then begin
       let token = Str.matched_string s in
       (* Printf.printf "tokenize keyword: %s\n" token; *)
-      (Tok_KeyW token)::(f (pos + (String.length token)) s)
+      (Tok_Direct token)::(f (pos + (String.length token)) s)
     end  
     else if (Str.string_match (Str.regexp "[a-zA-Z_@][a-zA-Z_@0-9]*") s pos) then begin
       let token = Str.matched_string s in
@@ -132,7 +132,7 @@ let tokenCompare (t1: token) (t2: token) (strict: bool) : bool =
     |Tok_Label s1 -> (match t2 with |Tok_Label s2 -> 
             (* Printf.printf "compare words %s %s\n" s1 s2; *)
             if(strict) then (String.compare s1 s2)==0 else true |_ -> false)
-    | Tok_KeyW s1 -> (match t2 with |Tok_KeyW s2 -> 
+    | Tok_Direct s1 -> (match t2 with |Tok_Direct s2 -> 
             (* Printf.printf "compare words %s %s\n" s1 s2; *)
             if(strict) then (String.compare s1 s2)==0 else true |_ -> false)
     |Tok_String s1 -> (match t2 with |Tok_String s2 -> 
@@ -143,6 +143,7 @@ let tokenCompare (t1: token) (t2: token) (strict: bool) : bool =
             if(strict) then c1 = c2 else true |_ -> false)
     | Tok_NewL -> (match t2 with |Tok_NewL -> true |_ -> false)
     | Tok_End -> (match t2 with |Tok_End -> true |_ -> false)
+
 
 let token2str (t: token) : string =
 
@@ -159,17 +160,19 @@ let token2str (t: token) : string =
     | Tok_CBra -> "(Tok_CBra)"    
     | Tok_Word s -> Printf.sprintf "(%s)" s  
     | Tok_Label s -> Printf.sprintf "(%s:)" s  
-    | Tok_KeyW s -> Printf.sprintf "(.%s)" s  
+    | Tok_Direct s -> Printf.sprintf "(.%s)" s  
     | Tok_String s -> Printf.sprintf "(\"%s\")" s  
     | Tok_Char c -> Printf.sprintf "(%c)" c
     | Tok_NewL -> "(\\n)"
     | Tok_End -> "(Tok_End)"
+
 
 let rec tokensl2str (tokens: token list) : string =
 
   match tokens with
   | [] -> ""
   | s::xs ->  Printf.sprintf " %s, %s" (token2str s) (tokensl2str xs)
+
 
 let tokens2str (tokens: token array ref) : string =
 
@@ -186,5 +189,9 @@ let tokensn2str (tokens: token array ref) (subt:int * int) : string =
   ) !tokens;
   !acc
 
+
 let showTokens (a : token array ref) =
   Printf.printf "Tokens: %s\n" (tokens2str a)
+
+
+

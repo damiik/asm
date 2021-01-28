@@ -1,0 +1,7 @@
+
+(library
+ (name mparser)
+ (libraries tokenizer str)
+ (public_name mparser)
+ ; (preprocess (pps ppx_deriving.show))
+ )

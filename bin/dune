@@ -1,13 +1,13 @@
 (executable
     (name asm)
-    (libraries parser tokenizer str)
+    (libraries asmparser preprocess tokenizer str)
     ; (preprocess (pps ppx_deriving.show))
     (public_name asm)    
-     (package parser)
+     (package asmparser)
     )
 
 
 ;  (install
-;     (package parser)
+;     (package asmparser)
 ;     (section bin)
 ;     (files (asm.exe as asm)))   
