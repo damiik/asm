@@ -2,7 +2,8 @@
 <p>This is my experimental assembler for 6502 processor in Ocaml with monadic parser described here: https://www.cs.nott.ac.uk/~pszgmh/monparsing.pdf. </p>
 <p>This program was mainly inspired by Tsoding parcoom parser: https://github.com/tsoding/parcoom</p>
 <p>
-As input to parser I used tokens from lexer and this simple solution lets me to forget about whitespaces and comments in parser grammar.</p>
+As input to parser I used tokens from lexer (instead of string) and this simple solution lets me to forget about whitespaces and comments in parser grammar.</p>
+<p>Now assembling is processed in 3 passes: pre-processing parse with directives calculations (preprocess), parsing tokens and generating instructions (by asmparser) and post-process with calculating labels relative and absolute positions in code (by asmparser). </p>
 
 ---------------------
   ## testing with utop:
