@@ -6,7 +6,7 @@ asm - Copyright (c) 2020 Dariusz Mikołajczyk
 exception TokenizerError of string
 
 type token = 
-  | Tok_Num of string
+  | Tok_Number of string
   | Tok_Sum
   | Tok_Mul
   | Tok_Div
@@ -35,7 +35,7 @@ let tokenize str =
     if(Str.string_match (Str.regexp "\\(\\%[01]+\\)\\|\\(\\$[0-9a-fA-F]+\\)\\|\\([0-9]+\\)") s pos) then
       let token = Str.matched_string s in
       (* Printf.printf "tokenize num: %s\n" token; *)
-      (Tok_Num token)::(f (pos + (String.length token)) s)
+      (Tok_Number token)::(f (pos + (String.length token)) s)
     else if (Str.string_match (Str.regexp "\\+") s pos) then begin
       (* Printf.printf "tokenize add\n"; *)
       Tok_Sum::(f (pos + 1) s)
@@ -116,7 +116,7 @@ let tokenize str =
 let tokenCompare (t1: token) (t2: token) (strict: bool) : bool =
 
     match t1 with
-    | Tok_Num n1 -> (match t2 with |Tok_Num n2 -> if(strict) then n1 = n2 else true |_ -> false)
+    | Tok_Number n1 -> (match t2 with |Tok_Number n2 -> if(strict) then n1 = n2 else true |_ -> false)
     | Tok_Sum -> (match t2 with |Tok_Sum -> true |_ -> false)
     | Tok_Mul -> (match t2 with |Tok_Mul -> true |_ -> false)
     | Tok_Div -> (match t2 with |Tok_Div -> true |_ -> false)
@@ -148,7 +148,7 @@ let tokenCompare (t1: token) (t2: token) (strict: bool) : bool =
 let token2str (t: token) : string =
 
   match t with
-    | Tok_Num n -> Printf.sprintf "(Number: %s)" n
+    | Tok_Number n -> Printf.sprintf "(Number: %s)" n
     | Tok_Sum -> "(+)"
     | Tok_Mul -> "(*)"
     | Tok_Div -> "(/)"

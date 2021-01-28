@@ -257,7 +257,7 @@ let number_p: int option parser = {
     Printf.printf "number_p token:%s byte:%d\n" (if state.token_ix < (Array.length !( state.tokens )) then  (token2str !( state.tokens ).( state.token_ix )) else ">>end<<") state.byte_counter;
     List.iter (fun l -> Printf.printf "\t\t\t\tlabel:%s %d\n" l.name l.value ) state.labels;
     match !( state.tokens ).( state.token_ix ) with
-    | Tok_Num n_str  -> 
+    | Tok_Number n_str  -> 
         (* Printf.printf "number_p:[%s]" n_str; *)
         let str_len = String.length n_str in
         if(str_len > 0) then (

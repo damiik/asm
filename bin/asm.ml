@@ -80,17 +80,18 @@ __vinit:
 
 (* showTokens ( tokens_arr );; *)
 match ((
-{|
-.equ bla (2*10)
-.equ qua 5
+	{|
+	.equ value1 (2*10)
+	.equ value2 %1000000 + value1
 
-lab0: INY
-			BEQ lab0
-			BNE lab1
-			LDA $10
-			CMP $4401
-lab1: JMP $09
-|} |> tokenize |> preprocess_tokens |> Array.of_list |> ref, 0, 0, [], []) |> set_state |> inst_line_p.run)  with
+	lab0: INY
+				BEQ lab0
+				BNE lab1
+				LDA $10
+				CMP $4401
+	lab1: JMP value2
+	|} 
+	|> tokenize |> preprocess_tokens |> Array.of_list |> ref, 0, 0, [], []) |> set_state |> inst_line_p.run)  with
 (* | Ok (pos, len), a ->  
                   Printf.printf "Ok at: %d  length: %d\n%s" pos len (tokensn2str tokens_arr (pos, len))*)
 | state, Ok a -> 
