@@ -317,6 +317,20 @@ let instruction_p : inst_line parser = {
 }
 
 
+let get_data_p (conv_f: int -> int list) : int list parser = 
+      oneOrMore(
+        (force_number_p <* (Tok_Coma |> is_a) <* new_linei_p) <|>
+        (force_number_p <* (Tok_Coma |> is_a)) <|>  
+        (force_number_p <* new_linei_p) <|>
+         force_number_p
+      ) >>= fun i -> return (List.fold_left (fun acc e -> acc@(e |> conv_f)) [] i ) (* elements of result list are converted in fold_left by function get_data_p *)
+
+let data_p : inst_line parser = 
+
+       ((Tok_Direct ".word" |> is_a) *> (int2List2B |> get_data_p)) <|>
+       ((Tok_Direct ".byte" |> is_a) *> (int2List1B |> get_data_p)) >>= fun l -> return (Data l)
+
+
 let inst_line_p : (inst_line list) parser =
 
   oneOrMore (
@@ -324,13 +338,28 @@ let inst_line_p : (inst_line list) parser =
     new_linei_p <|>
     (instruction_p) <|>
     (label_p <* new_linei_p) <|>
-    ((label_p <*> instruction_p) >>= fun (a,b) -> 
+    (
+      (label_p <*> instruction_p) >>= fun (a,b) -> 
         match a with 
         | Label (s, v) -> (
             match b with 
             | Instr i-> return (Label_Instr (s, v, i))
             | _ -> fail "Instruction expected but got")
-        |_-> fail "Label and instruction expected but got")
+        |_-> fail "Label and instruction expected but got"
+    ) <|>
+    (
+      label_p <*> data_p >>= fun (a,b) -> 
+        match a with 
+        | Label (s, v) -> (
+            match b with 
+            | Data i -> return (Label_Data (s, v, i))
+            | _ -> fail "Data expected but got")
+        |_-> fail "Label and data expected but got"
+    
+    ) <|>
+    (
+      data_p
+    )
   ) <*> get_state >>= fun (r, s) -> 
 
     Printf.printf "postprocess token:%s byte:%d\n" (if s.token_ix < (Array.length !(s.tokens)) then  (token2str !(s.tokens).(s.token_ix)) else ">>end<<") s.byte_counter;

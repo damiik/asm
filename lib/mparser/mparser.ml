@@ -201,6 +201,12 @@ let getTok : token parser = {
 let new_line_p: unit parser = ((is_a Tok_NewL) >>= fun _ -> return ())
 
 (* expressions *)
+(* 
+  expression -> term + expression | term - expression | term    
+  term -> factror * term | factror / term | factror     
+  factor -> (expression) | 0,1,2,3..| -factor  
+*)  
+
 type exp = 
   | Num of int
   | Min of exp
@@ -244,15 +250,13 @@ let rec exp_compare instr1 instr2: bool =
   | Null -> false
 ;;
 
+
+
 (* 
-  expression -> term + expression | term - expression | term    
-  term -> factror * term | factror / term | factror     
-  factor -> (expression) | 0,1,2,3..| -factor  
-*)  
-
-
-
-let number_p: int option parser = {
+  It's >int option< here as result so there is no chance to inform about error in this place.
+  If needed, alternative parser >force_number_p< always return number or rise error message.
+*)
+let number_p: int option parser = { 
   run = fun state -> 
     Printf.printf "number_p token:%s byte:%d\n" (if state.token_ix < (Array.length !( state.tokens )) then  (token2str !( state.tokens ).( state.token_ix )) else ">>end<<") state.byte_counter;
     List.iter (fun l -> Printf.printf "\t\t\t\tlabel:%s %d\n" l.name l.value ) state.labels;
@@ -262,7 +266,7 @@ let number_p: int option parser = {
         let str_len = String.length n_str in
         if(str_len > 0) then (
           match n_str.[0] with
-          | '$' -> (state_next_token state), Ok (String.sub n_str 1 (str_len-1) |> Printf.sprintf "0x%s" |> Stdlib.int_of_string_opt)
+          | '$' -> (state_next_token state), Ok (String.sub n_str 1 (str_len-1) |> Printf.sprintf "0x%s" |> Stdlib.int_of_string_opt) 
           | '%' -> (state_next_token state), Ok (String.sub n_str 1 (str_len-1) |> Printf.sprintf "0b%s" |> Stdlib.int_of_string_opt)
           | _ -> (state_next_token state), Ok (Stdlib.int_of_string_opt n_str)
         )
@@ -271,6 +275,27 @@ let number_p: int option parser = {
      
       state, Error ( Printf.sprintf ": Number expected but got: %s at: [%d] " (token2str token) state.token_ix)
 }
+
+
+let force_number_p: int parser = { 
+  run = fun state -> 
+     match !( state.tokens ).( state.token_ix ) with
+    | Tok_Number n_str  -> 
+        let str_len = String.length n_str in
+        if(str_len > 0) then (
+          let no = 
+          match n_str.[0] with
+          | '$' -> (state_next_token state), (String.sub n_str 1 (str_len-1) |> Printf.sprintf "0x%s" |> Stdlib.int_of_string_opt) 
+          | '%' -> (state_next_token state),(String.sub n_str 1 (str_len-1) |> Printf.sprintf "0b%s" |> Stdlib.int_of_string_opt)
+          | _ -> (state_next_token state), (Stdlib.int_of_string_opt n_str) in
+          match no with
+          | (stat', Some n) -> stat', Ok n
+          | (_, None) -> state |> (fail "Number expeced but got").run 
+        )
+        else state |> (fail (Printf.sprintf "Not a number: %s at:" n_str)).run 
+    | _ -> state |> (fail "Number expeced but got").run 
+}
+
 
 let rec term_p = 
 { run = fun state -> 

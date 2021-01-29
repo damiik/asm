@@ -90,6 +90,9 @@ match ((
 				LDA $10
 				CMP $4401
 	lab1: JMP value2
+	myData: .word 1 2 3 4 5 6 7 $AA0 
+	myData2: .word %10000000000, $AABB, $CCDD,
+	$EEEE, $FFFF
 	|} 
 	|> tokenize |> preprocess_tokens |> Array.of_list |> ref, 0, 0, [], []) |> set_state |> inst_line_p.run)  with
 (* | Ok (pos, len), a ->  
