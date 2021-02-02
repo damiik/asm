@@ -9,70 +9,7 @@ open Preprocess
 open Asmparser
 
 
-let a1 = {|
-
-message: .byte "hello, my beautyfull world!"
-end_msg:
-
-NEWLINE = $0D
-UPPERCASE = $8E
-VERA_BASE_REG = $9F20
-
-.proc   mypopa
-
-; .if (.cpu .bitand ::CPU_ISET_65SC02)
-        ; lda     (sp)
-; .else
-        ldy     #0              ; (2)
-        lda     (sp),y          ; (7) Read byte
-; .endif
-        inc     sp              ; (12)
-        beq     @L1             ; (14)
-        rts                     ; (20)
-
-@L1:    inc     sp+1
-        rts
-
-.endproc
-
-__sei:
-	sei
-	rts
-
-__cli:
-  cli
-	rts
-
-__vinit:
-	; JSR popptr1           ; Get
-	; ldy     #0            ; ccount in struct outdesc
-	; lda     (ptr1),y
-  ; LDA #%00000000;
-	; jsr mypopa
-
-	STZ VERA_ctrl						;ADDR_SEL = 0  --> ADDR0_L / ADDR0_M / ADDR0_H.
- 	
-	; layer0 Tile Base Address Bits 11-16 x xxxx x000 0000 0000, 
-	; b1: tile height (8 or 16 pixels), 
-	; b0: tile width (8 or 16 pixels)
-	; LDA $00	(a loaded as parameter)							
-	STA VERA_L0_tilebase	 
-
-	; b7-b6: map height (32, 64, 128, 256 tiles),
-	; b5-b4: map width (32, 64, 128, 256 tiles), 
-	; b3:T256, b2:BitMap Mode, 
-	; b1-b0:Color depth (1bpp, 2bpp, 4bpp, 8bpp)
-	LDA #%00000111					; REM 64 X 128 TILES 4 BPP MODE
-	STA VERA_L0_config      
-
-|} 
-;;
-
-(* let a = "2+5*(-%0001001010+3)-8" *)
-(* "$125/10-2*$ff z" *)
-
-(* let a = inst_line_p.run (input_rec (ref (Array.of_list (tokenize ""))) 0 0);; *)
-
+let () =
 
 (* (if( (Array.length Sys.argv) > 0) then (Sys.argv.(1)) else a)));; *)
 
@@ -80,29 +17,98 @@ __vinit:
 
 (* showTokens ( tokens_arr );; *)
 match ((
-	{|
+	(* {|
 	.equ value1 (2*10)
 	.equ value2 %1000000 + value1
 
 	lab0: INY
+				CMP #'Z'+1
 				BEQ lab0
 				BNE lab1
 				LDA $10
 				CMP $4401
+				LDA c_data
+				CMP a_data
 	lab1: JMP value2
-	myData: .word 1 2 3 4 5 6 7 $AA0 
-	myData2: .word %10000000000, $AABB, $CCDD,
+
+	c_data: .byte "Lot of fun with Ocaml programming :)"
+	a_data: .word 1 2 3 4 5 6 7 $AA0 
+	b_data: .word %10000000000, $AABB, $CCDD,
 	$EEEE, $FFFF
-	|} 
-	|> tokenize |> preprocess_tokens |> Array.of_list |> ref, 0, 0, [], []) |> set_state |> inst_line_p.run)  with
+	|}  *)
+
+(* {|
+SRC:     .word $0400     ;source string pointer ($40)
+DST:     .word $0500     ;destination string pointer ($42)
+;
+;;       ORG $0600       ;execution start address
+;
+				 JMP DONE
+TOLOWER: LDY #$00        ;starting index
+;
+LOOP:   LDA (SRC+1),Y     ; get from source string 
+        BEQ DONE        ;end of string
+;
+        CMP #'A'        ;if lower than UC alphabet...
+        BCC SKIP        ;copy unchanged
+;
+        CMP #'Z'+1      ;if greater than UC alphabet...
+        BCS SKIP        ;copy unchanged
+;
+        ORA #%00100000  ;convert to lower case
+;
+SKIP:    
+				STA (DST),Y     ;store to destination string
+        INY             ;bump index
+        BNE LOOP        ;next character
+;
+; NOTE: If Y wraps the destination string will be left in an undefined
+;  state.  We set carry to indicate this to the calling function.
+;
+        SEC             ;report string too long error &...
+        RTS             ;return to caller
+;
+DONE:    STA (DST),Y     ;terminate destination string
+        CLC             ;report conversion completed &...
+        RTS             ;return to caller
+;
+;;        .END
+
+
+|} *)
+
+(* {|.org $8000
+	.equ Char1 'A'
+	Char2 ='A' + 1
+
+	l0: JMP (l1)
+			CMP #Char1 + 1
+			BNE l1
+			CMP #Char2
+	l1: JMP l0
+|} *)
+
+{| .org $8000
+   .equ Char1 'A'
+   Char2 = ('A' + 1)
+
+   l0: JMP (l1)
+      LDA heart, X
+      CMP #Char1 + 1
+      BNE l1
+      CMP #Char2
+      LDA $A0, X
+   l1: JMP l0
+   heart: .byte %00000, %01010, %11111
+|}
+	|> tokenize |> preprocess_tokens |> asm_lines_p.run))  with
 (* | Ok (pos, len), a ->  
                   Printf.printf "Ok at: %d  length: %d\n%s" pos len (tokensn2str tokens_arr (pos, len))*)
-| state, Ok a -> 
-	 	List.iter (fun l -> Printf.printf "label:%s %d\n" l.name l.value) state.labels;
-		Printf.printf "Success with %s" (instr_list2string a);
+| _, Ok a -> 
+	 	(* List.iter (fun l -> Printf.printf "label:%s %d\n" l.name l.value) state.labels; *)
+		Printf.printf "Success with %s" (asm_line_list2string a);
 | _, Error e -> Printf.printf "Error %s" e
 
 
-(* Printf.printf "%d" (eval (Parser.parse_E ()) );; *)
 
 

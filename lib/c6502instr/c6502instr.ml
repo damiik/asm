@@ -22,7 +22,7 @@ let address_mode2string m =
   match m with
   | Immediate -> "IME"         
   | Relative -> "REL"          
-  | ZeroPage -> "ZPA"          
+  | ZeroPage -> "ZPG"          
   | ZeroPageXIndexed -> "ZXI"  
   | ZeroPageYIndexed -> "ZYI" 
   | XIndexedIndirect -> "XII" 
@@ -30,9 +30,25 @@ let address_mode2string m =
   | Absolute -> "ABS"          
   | AbsoluteXIndexed -> "AXI"  
   | AbsoluteYIndexed -> "AYI"  
-  | Indirect -> "IND"          
+  | Indirect -> "IDR"          
   | Accumulator -> "ACC"
   | Implicit -> "IMP"
+
+  let address_mode2string2 m = 
+    match m with
+    | Immediate -> "Immediate"         
+    | Relative -> "Relative"          
+    | ZeroPage -> "ZeroPage"          
+    | ZeroPageXIndexed -> "Zero-Page-X-Indexed"  
+    | ZeroPageYIndexed -> "Zero-Page-Y-Indexed" 
+    | XIndexedIndirect -> "X-Indexed-Indirect" 
+    | IndirectYIndexed -> "Indirect-Y-Indexed" 
+    | Absolute -> "Absolute"          
+    | AbsoluteXIndexed -> "Absolute-X-Indexed"  
+    | AbsoluteYIndexed -> "Absolute-Y-Indexed"  
+    | Indirect -> "Indirect"          
+    | Accumulator -> "Accumulator"
+    | Implicit -> "Implicit"
 
 type instruction_code_t = {
 

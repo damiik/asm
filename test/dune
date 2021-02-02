@@ -1,4 +1,4 @@
 (test 
     (name test) 
-    (libraries asmparser alcotest)
+    (libraries asmparser preprocess alcotest)
     (package asmparser))

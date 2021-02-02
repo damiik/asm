@@ -11,11 +11,15 @@ type token =
   | Tok_Mul
   | Tok_Div
   | Tok_Sub
+  | Tok_Or
+  | Tok_And
+  | Tok_Less
+  | Tok_More
   | Tok_Equ
   | Tok_Coma
   | Tok_Hash
-  | Tok_OBra
-  | Tok_CBra
+  | Tok_LParen
+  | Tok_RParen
   | Tok_Word of string   (*  abc  *)
   | Tok_Char of char
   | Tok_NewL
@@ -51,6 +55,22 @@ let tokenize str =
     else if (Str.string_match (Str.regexp "\\-") s pos) then begin
       (* Printf.printf "tokenize min\n"; *)
       Tok_Sub::(f (pos + 1) s)
+    end 
+    else if (Str.string_match (Str.regexp "|") s pos) then begin
+      (* Printf.printf "tokenize min\n"; *)
+      Tok_Or::(f (pos + 1) s)
+    end    
+    else if (Str.string_match (Str.regexp "&") s pos) then begin
+      (* Printf.printf "tokenize min\n"; *)
+      Tok_And::(f (pos + 1) s)
+    end    
+    else if (Str.string_match (Str.regexp "<") s pos) then begin
+      (* Printf.printf "tokenize min\n"; *)
+      Tok_Less::(f (pos + 1) s)
+    end    
+    else if (Str.string_match (Str.regexp ">") s pos) then begin
+      (* Printf.printf "tokenize min\n"; *)
+      Tok_More::(f (pos + 1) s)
     end
     else if (Str.string_match (Str.regexp "=") s pos) then begin
       (* Printf.printf "tokenize equ\n"; *)
@@ -66,11 +86,11 @@ let tokenize str =
     end
     else if (Str.string_match (Str.regexp "(") s pos) then begin
       (* Printf.printf "tokenize open bra\n"; *)
-      Tok_OBra::(f (pos + 1) s)
+      Tok_LParen::(f (pos + 1) s)
     end
     else if (Str.string_match (Str.regexp ")") s pos) then begin
       (* Printf.printf "tokenize closed bra\n"; *)
-      Tok_CBra::(f (pos + 1) s)
+      Tok_RParen::(f (pos + 1) s)
     end
     else if (Str.string_match (Str.regexp "\\\'.\\\'") s pos) then begin
       let token = Str.matched_string s in
@@ -121,11 +141,15 @@ let tokenCompare (t1: token) (t2: token) (strict: bool) : bool =
     | Tok_Mul -> (match t2 with |Tok_Mul -> true |_ -> false)
     | Tok_Div -> (match t2 with |Tok_Div -> true |_ -> false)
     | Tok_Sub -> (match t2 with |Tok_Sub -> true |_ -> false)
+    | Tok_Or -> (match t2 with |Tok_Or -> true |_ -> false)
+    | Tok_And -> (match t2 with |Tok_And -> true |_ -> false)
+    | Tok_Less -> (match t2 with |Tok_Less -> true |_ -> false)
+    | Tok_More -> (match t2 with |Tok_More -> true |_ -> false)
     | Tok_Equ -> (match t2 with |Tok_Equ -> true |_ -> false)
     | Tok_Coma -> (match t2 with |Tok_Coma -> true |_ -> false)
     | Tok_Hash -> (match t2 with |Tok_Hash -> true |_ -> false)
-    | Tok_OBra -> (match t2 with |Tok_OBra -> true |_ -> false)
-    | Tok_CBra -> (match t2 with |Tok_CBra -> true |_ -> false)   
+    | Tok_LParen -> (match t2 with |Tok_LParen -> true |_ -> false)
+    | Tok_RParen -> (match t2 with |Tok_RParen -> true |_ -> false)   
     | Tok_Word s1 -> (match t2 with |Tok_Word s2 -> 
             (* Printf.printf "compare words %s %s\n" s1 s2; *)
             if(strict) then (String.compare s1 s2)==0 else true |_ -> false)
@@ -153,16 +177,20 @@ let token2str (t: token) : string =
     | Tok_Mul -> "(*)"
     | Tok_Div -> "(/)"
     | Tok_Sub -> "(-)"
+    | Tok_Or -> "(|)"
+    | Tok_And -> "(&)"        
+    | Tok_Less -> "(<)"
+    | Tok_More -> "(>)"
     | Tok_Equ -> "(=)"
     | Tok_Coma -> "(,)"
     | Tok_Hash -> "(#)"
-    | Tok_OBra -> "(Tok_OBra)"
-    | Tok_CBra -> "(Tok_CBra)"    
+    | Tok_LParen -> "(Tok_LParen)"
+    | Tok_RParen -> "(Tok_RParen)"    
     | Tok_Word s -> Printf.sprintf "(%s)" s  
     | Tok_Label s -> Printf.sprintf "(%s:)" s  
     | Tok_Direct s -> Printf.sprintf "(.%s)" s  
     | Tok_String s -> Printf.sprintf "(\"%s\")" s  
-    | Tok_Char c -> Printf.sprintf "(%c)" c
+    | Tok_Char c -> Printf.sprintf "(Char: %c)" c
     | Tok_NewL -> "(\\n)"
     | Tok_End -> "(Tok_End)"
 
