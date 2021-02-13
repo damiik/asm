@@ -3,6 +3,7 @@
 asm - Copyright (c) 2020 Dariusz Mikołajczyk 
 *)
 
+open Printf
 open Tokenizer
 
 exception ParserError of string
@@ -31,11 +32,11 @@ type state = {
   }
 
   let get_identifier li s  =
-  let label_str = Printf.sprintf "%s:" s in
-  Printf.printf "get_identifier searching for: %s, list_size: %d\n" s (List.length li);
-  match (List.filter (fun l -> Printf.printf "curr identifier: %s\n" l.name; ((String.compare l.name label_str) = 0))) li with
-  | x::_ -> Printf.printf " >>>success\n";Some x.value
-  | _ ->  Printf.printf " >>>fail\n";None 
+  let label_str = sprintf "%s:" s in
+  printf "get_identifier searching for: %s, list_size: %d\n" s (List.length li);
+  match (List.filter (fun l -> printf "curr identifier: %s\n" l.name; ((String.compare l.name label_str) = 0))) li with
+  | x::_ -> printf " >>>success\n";Some x.value
+  | _ ->  printf " >>>fail\n";None 
 
 
   
@@ -43,10 +44,10 @@ type state = {
 let set_state (t, i, c, r, v) = {tokens = t; token_ix = i; byte_counter = c; identifiers = r; labels = v;}
 
 (* increment token_ix *)
-let state_next_token s = {tokens = s.tokens; token_ix = s.token_ix + 1; byte_counter = s.byte_counter; identifiers = s.identifiers; labels = s.labels }
+let state_next_token s = {s with token_ix = s.token_ix + 1}
 
 (* increment token_ix and update byte counter *)
-let state_next_token_w s w = {tokens = s.tokens; token_ix = s.token_ix + 1; byte_counter = s.byte_counter + w; identifiers = s.identifiers; labels = s.labels }
+let state_next_token_w s w = {s with token_ix = s.token_ix + 1; byte_counter = s.byte_counter + w; }
 
 
 type error = { 
@@ -63,22 +64,30 @@ type 'a parser = {
 let fail (e: string) = { 
   run = fun state -> 
 
-    state, Error (Printf.sprintf ": %s: %s at: [%d] " e (token2str !( state.tokens ).( state.token_ix )) state.token_ix) 
+    state, Error (sprintf ": %s: %s at: [%d] " e (token2str !( state.tokens ).( state.token_ix )) state.token_ix) 
 }
 
 
 let return (x: 'a) = { run = fun state -> state, Ok x}
-let get_state = { run = fun state -> 
 
-    Printf.printf "get_state token:%s byte:%d\n" (if state.token_ix < (Array.length !( state.tokens )) then  (token2str !( state.tokens ).( state.token_ix )) else ">>end<<") state.byte_counter;
-state, Ok state}
+let get_state p  = { run = fun state ->  
+
+    printf "get_state token:%s byte:%d\n" (
+      if state.token_ix < (Array.length !( state.tokens )) 
+      then  (token2str !( state.tokens ).( state.token_ix )) 
+      else ">>end<<" ) state.byte_counter;
+    match (state |> p.run) with
+    | (state', Ok res) -> state', Ok (res, state')
+    | (_, Error e) -> state, Error e
+}
+
 
 let get_label ll s  =
-      let label_str = Printf.sprintf "%s:" s in
-      Printf.printf "get_label searching for: %s, list_size: %d\n" s (List.length ll);
+      let label_str = sprintf "%s:" s in
+      printf "get_label searching for: %s, list_size: %d\n" s (List.length ll);
       match (List.filter (fun l ->  ((String.compare l.name label_str) = 0))) ll with
-      | x::_ -> Printf.printf " >>>success\n";Some x.value
-      | _ ->  Printf.printf " >>>fail\n";None 
+      | x::_ -> printf " >>>success\n";Some x.value
+      | _ ->  printf " >>>fail\n";None 
 
 (* return value of label or -1 *)
 let get_label_val w : (int * string * (int option)) parser = {
@@ -109,12 +118,10 @@ let ( >>= )  (p: 'a parser) (f: 'a -> 'b parser)  : 'b parser  = {
   run = fun state -> 
       let state', result = p.run state in
       match result with
-          | Ok x -> 
-                let state'', result' = (f x).run state' in
-                (state'', result')
-          | Error error -> 
-                state, Error error (* if fail, return old state token_ix *)
+      | Ok x -> (f x).run state'
+      | Error error -> state', Error error (* if fail, return old state token_ix *)
 }
+
 
 let bind p f = p >>= f
 
@@ -122,10 +129,13 @@ let bind p f = p >>= f
 let ( <|> ) (p1: 'a parser) (p2: 'a parser): 'a parser = { 
   
   run = fun state -> 
-    let state', result = state |> p1.run in
-    match result with
-    | Ok _ -> (state', result)
-    | Error _ -> state |> p2.run  
+    match state |> p1.run with 
+    | _, Error e1 -> (match state |> p2.run with
+
+                      | _, Error e2 -> (state, Error (sprintf "%s or \n\t%s" e1 e2))
+                      | res2 -> res2
+    )
+    | res1 -> res1
 }
 
 let ( *> ) (p1: 'a parser) (p2: 'b parser): 'b parser = { run = fun state -> 
@@ -146,24 +156,26 @@ let zeroOrMore (p:'a parser) : 'a list parser = {
       match result with
       | Error _ -> i, Ok []       
       | Ok x -> let state'', result' = parse_fun state' in
-            (match result' with
-                      | (Error _) -> (state', Ok (x::[]))       
-                      | ( Ok x'') -> (state'', Ok ( x::x'')))
+          (match result' with
+          | (Error _) -> (state', Ok (x::[]))       
+          | ( Ok x'') -> (state'', Ok ( x::x'')))
     in
     parse_fun state
 }  
 
 let oneOrMore (p:'a parser) : 'a list parser = {
   run = fun state -> 
-
-    let rec parse_fun = fun i -> 
-      let state', result = p.run i in
+   
+    let rec parse_fun = fun (curr_state: state) -> 
+      assert (curr_state.token_ix < (Array.length !( curr_state.tokens )));
+      let state', result = p.run curr_state in
       match result with
-      | Error error -> i, Error error       
+      | Error s ->  curr_state, Error s       
       | Ok x -> let state'', result' = parse_fun state' in
-            (match result' with
-                      | (Error _) -> (state', Ok (x::[]))       
-                      | ( Ok x'') -> (state'', Ok ( x::x'')))
+          (match result' with
+          | (Error s) -> printf "******** Error: %s\n" s;
+            (state', Ok (x::[]))       
+          | ( Ok x'') -> (state'', Ok ( x::x'')))
     in
     parse_fun state
 }   
@@ -171,41 +183,46 @@ let oneOrMore (p:'a parser) : 'a list parser = {
 
 let is_a (t: token) : bool parser = {
   run = fun state -> 
-    Printf.printf "is_a %s ? %s\n"  (token2str t) (if state.token_ix < (Array.length !( state.tokens )) then  (token2str !( state.tokens ).( state.token_ix )) else ">>end<<");
-    if(tokenCompare !( state.tokens ).( state.token_ix ) t true) then 
-        (state_next_token state), Ok true
-    else
-         state, Error ( Printf.sprintf ": Not a %s at: [%d] " (t |> token2str) state.token_ix)
+
+    assert (state.token_ix < (Array.length !( state.tokens )));
+    printf "is_a %s ? %s\n"  (token2str t) (token2str !( state.tokens ).( state.token_ix ));
+    if (tokenCompare !( state.tokens ).( state.token_ix ) t true)  then  (
+
+      (state_next_token state), Ok true
+    )
+    else 
+      state, Error ( sprintf ": Not a %s at: %d [%s] " (t |> token2str) state.token_ix  (token2str !( state.tokens ).( state.token_ix )))
+
 }
 
 (* return expected string  *)
 let word_t (s: string) : string parser = {
   run = fun state -> 
-    Printf.printf "word_t %s ? %s \n" s (if state.token_ix < (Array.length !( state.tokens )) then  (token2str !( state.tokens ).( state.token_ix )) else ">>end<<");
+    printf "word_t %s ? %s \n" s (if state.token_ix < (Array.length !( state.tokens )) then  (token2str !( state.tokens ).( state.token_ix )) else ">>end<<");
     match !( state.tokens ).( state.token_ix )  with
     | Tok_Word s2 -> if((String.compare s s2) = 0) then (state_next_token state), Ok s
-                     else state, Error ( Printf.sprintf ": Not a word %s at: [%d] " s state.token_ix)
-    | t ->  state, Error ( Printf.sprintf ": Token %s is not a %s at: [%d] " (t |> token2str) s state.token_ix)
+                     else state, Error ( sprintf ": Not a word %s at: [%d] " s state.token_ix)
+    | t ->  state, Error ( sprintf ": Token %s is not a %s at: [%d] " (t |> token2str) s state.token_ix)
 }
 
 let word_c(s: string) : string parser = {
   run = fun state -> 
-    Printf.printf "word_c %s ? %s \n" s (if state.token_ix < (Array.length !( state.tokens )) then  (token2str !( state.tokens ).( state.token_ix )) else ">>end<<");
+    printf "word_c %s ? %s \n" s (if state.token_ix < (Array.length !( state.tokens )) then  (token2str !( state.tokens ).( state.token_ix )) else ">>end<<");
     match !( state.tokens ).( state.token_ix )  with
     | Tok_Word s2 -> if((String.compare (String.uppercase_ascii s) (String.uppercase_ascii s2)) = 0) then (state_next_token state), Ok s
-                     else state, Error ( Printf.sprintf ": Not a word %s at: [%d] " s state.token_ix)
-    | t ->  state, Error ( Printf.sprintf ": Token %s is not a %s at: [%d] " (t |> token2str) s state.token_ix)
+                     else state, Error ( sprintf ": Not a word %s at: [%d] " s state.token_ix)
+    | t ->  state, Error ( sprintf ": Token %s is not a %s at: [%d] " (t |> token2str) s state.token_ix)
 }
 
 (* return any string *)
 let word_p: string parser = {
   run = fun state -> 
-    Printf.printf "word_p %s ? " (if state.token_ix < (Array.length !( state.tokens )) then  (token2str !( state.tokens ).( state.token_ix )) else ">>end<<");
+    printf "word_p %s ? " (if state.token_ix < (Array.length !( state.tokens )) then  (token2str !( state.tokens ).( state.token_ix )) else ">>end<<");
     match !( state.tokens ).( state.token_ix ) with
-    | Tok_Word l_str  -> Printf.printf "yes\n"; (state_next_token state), Ok l_str
+    | Tok_Word l_str -> printf "yes\n"; (state_next_token state), Ok l_str
     | token -> 
-      Printf.printf "no\n";
-      state, Error ( Printf.sprintf ": Word expected but got: %s at: [%d] " (token2str token) state.token_ix)
+      printf "no\n";
+      state, Error ( sprintf ": Word expected but got: %s at: [%d] " (token2str token) state.token_ix)
 }
 
 (* 
@@ -214,10 +231,8 @@ data string parser - parse string in double quotes, increment byte_counter by st
 let data_string_p: string parser = {
   run = fun state -> 
     match !( state.tokens ).( state.token_ix ) with
-    | Tok_String l_str  -> 
-                  state_next_token_w state (String.length l_str), Ok l_str
-    | token -> 
-      state, Error ( Printf.sprintf ": string in double quotes \" expected but got: %s at: [%d] " (token2str token) state.token_ix)
+    | Tok_String l_str  -> state_next_token_w state (String.length l_str), Ok l_str
+    | token -> state, Error ( sprintf ": string in double quotes \" expected but got: %s at: [%d] " (token2str token) state.token_ix)
 }
 
 
@@ -232,15 +247,15 @@ let data_number_p (width : int): int parser = {
         if(str_len > 0) then (
           let no = 
             match n_str.[0] with
-            | '$' -> (state_next_token_w state width), (String.sub n_str 1 (str_len-1) |> Printf.sprintf "0x%s" |> Stdlib.int_of_string_opt) 
-            | '%' -> (state_next_token_w state width),(String.sub n_str 1 (str_len-1) |> Printf.sprintf "0b%s" |> Stdlib.int_of_string_opt)
+            | '$' -> (state_next_token_w state width), (String.sub n_str 1 (str_len-1) |> sprintf "0x%s" |> Stdlib.int_of_string_opt) 
+            | '%' -> (state_next_token_w state width),(String.sub n_str 1 (str_len-1) |> sprintf "0b%s" |> Stdlib.int_of_string_opt)
             | _ -> (state_next_token_w state width), (Stdlib.int_of_string_opt n_str) 
           in
           match no with
           | (stat', Some n) -> stat', Ok n
           | (_, None) -> state |> (fail "Number expeced but got").run 
         )
-        else state |> (fail (Printf.sprintf "Not a number: %s at:" n_str)).run 
+        else state |> (fail (sprintf "Not a number: %s at:" n_str)).run 
     | _ -> state |> (fail "Number expeced but got").run 
 }
 
@@ -253,24 +268,24 @@ let data_number_p (width : int): int parser = {
 *)
 let get_back  : int parser = {
   run = fun state -> 
-    Printf.printf "get_back token:%s byte:%d\n" (if state.token_ix < (Array.length !( state.tokens )) then  (token2str !( state.tokens ).( state.token_ix )) else ">>end<<") state.byte_counter;
+    printf "get_back token:%s byte:%d\n" (if state.token_ix < (Array.length !( state.tokens )) then  (token2str !( state.tokens ).( state.token_ix )) else ">>end<<") state.byte_counter;
     if(state.token_ix > 0) then 
-        (state.tokens, state.token_ix - 1, state.byte_counter, state.identifiers, state.labels) |> set_state, Ok (state.token_ix -1)
+        {state with token_ix = state.token_ix - 1}, Ok (state.token_ix -1)
     else
-        state, Error ( Printf.sprintf ": try get_back to %s at: [%d] " (!( state.tokens ).( state.token_ix ) |> token2str) state.token_ix)
+        state, Error ( sprintf ": try get_back to %s at: [%d] " (!( state.tokens ).( state.token_ix ) |> token2str) state.token_ix)
 }
 
 (* increment byte_counter by i *)
 let inc_bcount_p (i:int) : int parser = {
   run = fun state -> 
-    Printf.printf "inc_bcount_p token:%s byte:%d + %d\n" (if state.token_ix < (Array.length !( state.tokens )) then  (token2str !( state.tokens ).( state.token_ix )) else ">>end<<") state.byte_counter i;
-    (state.tokens, state.token_ix, state.byte_counter + i, state.identifiers, state.labels) |> set_state, Ok (state.byte_counter + i)
+    printf "inc_bcount_p token:%s byte:%d + %d\n" (if state.token_ix < (Array.length !( state.tokens )) then  (token2str !( state.tokens ).( state.token_ix )) else ">>end<<") state.byte_counter i;
+    {state with byte_counter = state.byte_counter + i}, Ok (state.byte_counter + i)
 }
 
 
 let getTok : token parser = {
   run = fun state -> 
-    Printf.printf "getTok t:[%s] at:[%d]\n" (!( state.tokens ).( state.token_ix ) |> token2str) state.token_ix;
+    printf "getTok t:[%s] at:[%d]\n" (!( state.tokens ).( state.token_ix ) |> token2str) state.token_ix;
     if (!( state.tokens ) |> Array.length > state.token_ix) then
         (state_next_token state), Ok !( state.tokens ).( state.token_ix )
     else
@@ -289,6 +304,8 @@ type exp =
   | Identifier of string
   | Num of int
   | Min of exp
+  | BNot of exp
+  | LNot of exp
   | LPart of exp
   | HPart of exp    
   | Sub of exp * exp
@@ -306,30 +323,34 @@ let rec eval f exp : int option =
   | Mul (e1, e2) -> (match (eval f e1, eval f e2) with |(Some v1, Some v2) -> Some (v1 * v2) | _ -> None)
   | Sum (e1, e2) -> (match (eval f e1, eval f e2) with |(Some v1, Some v2) -> Some (v1 + v2) | _ -> None)
   | Div (e1, e2) -> (match (eval f e1, eval f e2) with |(Some v1, Some v2) -> Some (v1 / v2) | _ -> None)
-  | Or (e1, e2) -> (match (eval f e1, eval f e2) with |(Some v1, Some v2) -> Some (Int.logor v1  v2) | _ -> None)
+  | Or  (e1, e2) -> (match (eval f e1, eval f e2) with |(Some v1, Some v2) -> Some (Int.logor v1  v2) | _ -> None)
   | And (e1, e2) -> (match (eval f e1, eval f e2) with |(Some v1, Some v2) -> Some (Int.logand v1 v2) | _ -> None)
   | Sub (e1, e2) -> (match (eval f e1, eval f e2) with |(Some v1, Some v2) -> Some (v1 - v2) | _ -> None)
-  | Min e1 ->  (match (eval f e1) with |Some v1 -> Some ((-1) * v1) |None -> None)
-  | LPart e1 -> (match (eval f e1) with |Some v1 -> Some (Int.logand 0xFF v1) |None -> None)
-  | HPart e1 -> (match (eval f e1) with |Some v1 -> Some (Int.shift_right_logical v1 8) |None -> None)
+  | Min   e1 ->     (match (eval f e1) with |Some v1 -> Some ((-1) * v1) |None -> None)
+  | BNot  e1 ->     (match (eval f e1) with |Some v1 -> Some (Int.lognot v1) |None -> None)
+  | LNot  e1 ->     (match (eval f e1) with |Some v1 -> Some (if (Int.abs v1) > 0 then 0 else 1) |None -> None)
+  | LPart e1 ->     (match (eval f e1) with |Some v1 -> Some (Int.logand 0xFF v1) |None -> None)
+  | HPart e1 ->     (match (eval f e1) with |Some v1 -> Some (Int.shift_right_logical v1 8) |None -> None)
   | Null -> None
 ;;
 
 
 let rec exp2string exp: string = 
   match exp with
-  | Identifier s -> (Printf.sprintf "Ident %s" s)
-  | Num n -> (Printf.sprintf "Num %d" n)
-  | Mul (e1, e2) -> (Printf.sprintf "Mul(%s, %s)" (e1 |> exp2string) (e2 |> exp2string) )
-  | Sum (e1, e2) -> (Printf.sprintf "Sum(%s, %s)" (e1 |> exp2string) (e2 |> exp2string) )
-  | Div (e1, e2) -> (Printf.sprintf "Div(%s, %s)" (e1 |> exp2string) (e2 |> exp2string) )
-  | Sub (e1, e2) -> (Printf.sprintf "Sub(%s, %s)" (e1 |> exp2string) (e2 |> exp2string) )
-  | Or (e1, e2) -> (Printf.sprintf "Or(%s, %s)" (e1 |> exp2string) (e2 |> exp2string) )
-  | And (e1, e2) -> (Printf.sprintf "And(%s, %s)" (e1 |> exp2string) (e2 |> exp2string) )  
-  | Min e1 -> (Printf.sprintf "Min(%s)" (e1 |> exp2string)  )
-  | LPart e1 -> (Printf.sprintf "LPart(%s)" (e1 |> exp2string)  )
-  | HPart e1 -> (Printf.sprintf "HPart(%s)" (e1 |> exp2string)  )    
-  | Null -> (Printf.sprintf "Null ()" )
+  | Identifier s -> (sprintf "Ident %s" s)
+  | Num n -> (sprintf "Num %d" n)
+  | Mul (e1, e2) -> (sprintf "Mul(%s, %s)" (e1 |> exp2string) (e2 |> exp2string) )
+  | Sum (e1, e2) -> (sprintf "Sum(%s, %s)" (e1 |> exp2string) (e2 |> exp2string) )
+  | Div (e1, e2) -> (sprintf "Div(%s, %s)" (e1 |> exp2string) (e2 |> exp2string) )
+  | Sub (e1, e2) -> (sprintf "Sub(%s, %s)" (e1 |> exp2string) (e2 |> exp2string) )
+  | Or (e1, e2) -> (sprintf "Or(%s, %s)" (e1 |> exp2string) (e2 |> exp2string) )
+  | And (e1, e2) -> (sprintf "And(%s, %s)" (e1 |> exp2string) (e2 |> exp2string) )  
+  | Min e1 -> (sprintf "Min(%s)" (e1 |> exp2string)  )
+  | BNot e1 -> (sprintf "BitwiseNot(%s)" (e1 |> exp2string)  )
+  | LNot e1 -> (sprintf "LogicalNot(%s)" (e1 |> exp2string)  )
+  | LPart e1 -> (sprintf "LPart(%s)" (e1 |> exp2string)  )
+  | HPart e1 -> (sprintf "HPart(%s)" (e1 |> exp2string)  )    
+  | Null -> (sprintf "Null ()" )
 ;;
 
 let rec exp_compare instr1 instr2: bool = 
@@ -343,6 +364,8 @@ let rec exp_compare instr1 instr2: bool =
   | Or (e11, e12) ->  (match instr2 with | Or (e21, e22) -> if(exp_compare e11 e21 && exp_compare e12 e22) then true else false | _ -> false)
   | And (e11, e12) ->  (match instr2 with | And (e21, e22) -> if(exp_compare e11 e21 && exp_compare e12 e22) then true else false | _ -> false)
   | Min e1 -> (match instr2 with | Min e2 -> if(exp_compare e1 e2) then true else false | _ -> false)
+  | BNot e1 -> (match instr2 with | BNot e2 -> if(exp_compare e1 e2) then true else false | _ -> false)
+  | LNot e1 -> (match instr2 with | LNot e2 -> if(exp_compare e1 e2) then true else false | _ -> false)
   | LPart e1 -> (match instr2 with | LPart e2 -> if(exp_compare e1 e2) then true else false | _ -> false)
   | HPart e1 -> (match instr2 with | HPart e2 -> if(exp_compare e1 e2) then true else false | _ -> false)
   | Null -> false
@@ -356,38 +379,38 @@ let rec exp_compare instr1 instr2: bool =
 *)
 let number_p: int option parser = { 
   run = fun state -> 
-    Printf.printf "number_p token:%s byte:%d\n" (if state.token_ix < (Array.length !( state.tokens )) then  (token2str !( state.tokens ).( state.token_ix )) else ">>end<<") state.byte_counter;
+    printf "number_p token:%s byte:%d\n" (if state.token_ix < (Array.length !( state.tokens )) then  (token2str !( state.tokens ).( state.token_ix )) else ">>end<<") state.byte_counter;
     match !( state.tokens ).( state.token_ix ) with
     | Tok_Number n_str  -> 
-        (* Printf.printf "number_p:[%s]" n_str; *)
+        (* printf "number_p:[%s]" n_str; *)
         let str_len = String.length n_str in
         if(str_len > 0) then (
           match n_str.[0] with
-          | '$' -> (state_next_token state), Ok (String.sub n_str 1 (str_len-1) |> Printf.sprintf "0x%s" |> Stdlib.int_of_string_opt) 
-          | '%' -> (state_next_token state), Ok (String.sub n_str 1 (str_len-1) |> Printf.sprintf "0b%s" |> Stdlib.int_of_string_opt)
+          | '$' -> (state_next_token state), Ok (String.sub n_str 1 (str_len-1) |> sprintf "0x%s" |> Stdlib.int_of_string_opt) 
+          | '%' -> (state_next_token state), Ok (String.sub n_str 1 (str_len-1) |> sprintf "0b%s" |> Stdlib.int_of_string_opt)
           | _ -> (state_next_token state), Ok (Stdlib.int_of_string_opt n_str)
         )
-        else state, Error ( Printf.sprintf ": Not a number: %s at: [%d] " n_str state.token_ix)
+        else state, Error ( sprintf ": Not a number: %s at: [%d] " n_str state.token_ix)
     | Tok_Char ch -> (state_next_token state), Ok (Some (ch |> Char.code))
     | token -> 
      
-      state, Error ( Printf.sprintf ": Number expected but got: %s at: [%d] " (token2str token) state.token_ix)
+      state, Error ( sprintf ": Number expected but got: %s at: [%d] " (token2str token) state.token_ix)
 }
 
 
 
 let rec term_p = 
 { run = fun state -> 
-  (* Printf.printf "BEGIN term_p num:[%s] at:[%d]\n" (!( state.tokens ).( state.token_ix ) |> token2str) state.token_ix; *)
+  (* printf "BEGIN term_p num:[%s] at:[%d]\n" (!( state.tokens ).( state.token_ix ) |> token2str) state.token_ix; *)
   state |> (
     factor_p >>= fun exp1 -> 
     getTok >>= fun token ->
-      (* Printf.printf "term_p/factor_p/getTok:[%s]\n" (token |> token2str); *)
+      (* printf "term_p/factor_p/getTok:[%s]\n" (token |> token2str); *)
       match token with
       | Tok_Mul -> term_p >>= fun exp2 -> return (Mul (exp1, exp2))
       | Tok_Div -> term_p >>= fun exp2 -> return (Div (exp1, exp2))
       | _ ->
-        (* Printf.printf "END term_p/factor_p/getTok/return at:[%s]\n" (t |> token2str); *)
+        (* printf "END term_p/factor_p/getTok/return at:[%s]\n" (t |> token2str); *)
         get_back >>= fun _ ->  return exp1).run  (*** get_back -> get one token back to parser!! *)
 }
 
@@ -398,23 +421,25 @@ and factor_p: exp parser = {
       (word_p >>= fun w -> return (Identifier w)) <|> (* if expression is evaluated unrecognized identifier couse expression value = None *)
       ((is_a Tok_LParen) *> exp_p <* (is_a Tok_RParen)) <|>
       ((is_a Tok_Sub) *> (number_p >>= fun res -> match res with |Some v ->  return (Min (Num v))|_ -> fail "Not a number in expression")) <|>
+      ((is_a Tok_LNot) *> (number_p >>= fun res -> match res with |Some v ->  return (LNot (Num v))|_ -> fail "Not a number in expression")) <|>
+      ((is_a Tok_BNot) *> (number_p >>= fun res -> match res with |Some v ->  return (BNot (Num v))|_ -> fail "Not a number in expression")) <|>
       ((is_a Tok_Less) *> (number_p >>= fun res -> match res with |Some v ->  return (LPart (Num v))|_ -> fail "Not a number in expression")) <|>
       ((is_a Tok_More) *> (number_p >>= fun res -> match res with |Some v ->  return (HPart (Num v))|_ -> fail "Not a number in expression"))
     ).run
 }
 and exp_p : exp parser  =
 { run = fun state -> 
-   (* Printf.printf "BEGIN exp_p num:[%s] at:[%d]\n" (!( state.tokens ).( state.token_ix ) |> token2str) state.token_ix; *)
+   (* printf "BEGIN exp_p num:[%s] at:[%d]\n" (!( state.tokens ).( state.token_ix ) |> token2str) state.token_ix; *)
   state |> (
       term_p >>= fun exp1 -> 
       getTok >>= fun token ->
-        (* Printf.printf "exp_p/term_p/getTok:[%s]\n" (token |> token2str); *)
+        (* printf "exp_p/term_p/getTok:[%s]\n" (token |> token2str); *)
         match(token) with
           | Tok_Sum -> exp_p >>= fun exp2 -> return (Sum (exp1, exp2))
           | Tok_Sub -> exp_p >>= fun exp2 -> return (Sub (exp1, exp2))
           | Tok_Or  -> exp_p >>= fun exp2 -> return (Or  (exp1, exp2))
           | Tok_And -> exp_p >>= fun exp2 -> return (And (exp1, exp2))
           | _ -> 
-            (* Printf.printf "END exp_p/term_p/getTok/return at:[%s]\n" (t |> token2str); *)
+            (* printf "END exp_p/term_p/getTok/return at:[%s]\n" (t |> token2str); *)
             get_back >>= fun _ ->  return exp1).run   (*** get_back -> get one token back to parser!! *)
 }

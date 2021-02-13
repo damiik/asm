@@ -2,7 +2,7 @@
 asm - Copyright (c) 2020 Dariusz Mikołajczyk 
 *)
 
-
+open Printf
 open Tokenizer
 open Mparser
 open Preprocess
@@ -16,7 +16,7 @@ let () =
 
 
 (* showTokens ( tokens_arr );; *)
-match ((
+match 
 	(* {|
 	.equ value1 (2*10)
 	.equ value2 %1000000 + value1
@@ -90,7 +90,7 @@ DONE:    STA (DST),Y     ;terminate destination string
 
 {| .org $8000
    .equ Char1 'A'
-   Char2 = ('A' + 1)
+   Char2 = ( ~$FFE + 2)
 
    l0: JMP (l1)
       LDA heart, X
@@ -99,15 +99,16 @@ DONE:    STA (DST),Y     ;terminate destination string
       CMP #Char2
       LDA $A0, X
    l1: JMP l0
-   heart: .byte %00000, %01010, %11111
+	 heart: .byte %00000, %01010, %11111
+	 
 |}
-	|> tokenize |> preprocess_tokens |> asm_lines_p.run))  with
+	|> tokenize |> preprocess_tokens |> asm_lines_p.run with
 (* | Ok (pos, len), a ->  
-                  Printf.printf "Ok at: %d  length: %d\n%s" pos len (tokensn2str tokens_arr (pos, len))*)
+                  printf "Ok at: %d  length: %d\n%s" pos len (tokensn2str tokens_arr (pos, len))*)
 | _, Ok a -> 
-	 	(* List.iter (fun l -> Printf.printf "label:%s %d\n" l.name l.value) state.labels; *)
-		Printf.printf "Success with %s" (asm_line_list2string a);
-| _, Error e -> Printf.printf "Error %s" e
+	 	(* List.iter (fun l -> printf "label:%s %d\n" l.name l.value) state.labels; *)
+		printf "Success with %s" (asm_line_list2string a);
+| _, Error e -> printf "Error %s" e
 
 
 

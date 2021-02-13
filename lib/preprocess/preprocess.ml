@@ -1,3 +1,4 @@
+open Printf
 open Tokenizer
 open Mparser
 
@@ -20,22 +21,22 @@ let rec directives_p (l: token list) : token list parser = {
     
       l |> directives_p ) <|>
     
-    ((Tok_Direct ".equ" |> is_a) *> word_p <*> exp_p <* new_line_p <*> get_state >>= fun ((i, v), s) -> 
+    (get_state ((Tok_Direct ".equ" |> is_a) *> word_p <*> exp_p <* new_line_p) >>= fun ((i, v), s) -> 
     
       for t_ix = 0 to ((Array.length !(s.tokens) )-1) do
         (* looking in state.tokens for identifier >i< then setting token Tok_Number with evaluated expr >v< *)
         (match (!(s.tokens).(t_ix)) with 
-        | Tok_Word w -> if (String.compare w i)=0 then !(s.tokens).(t_ix) <- (Tok_Number (Printf.sprintf "%d" (match eval (get_identifier s.identifiers) v with | Some n -> n | None -> 0))) (* TODO: Tok_Number with int instead of string *)
+        | Tok_Word w -> if (String.compare w i)=0 then !(s.tokens).(t_ix) <- (Tok_Number (sprintf "%d" (match eval (get_identifier s.identifiers) v with | Some n -> n | None -> 0))) (* TODO: Tok_Number with int instead of string *)
         | _ -> ()) 
       done;
 
       l |> directives_p ) <|>
 
-      ( (word_p <* (is_a Tok_Equ)) <*> (exp_p <* new_line_p) <*> get_state >>= fun ((i, v), s) -> 
+      (get_state((word_p <* (is_a Tok_Equ)) <*> (exp_p <* new_line_p)) >>= fun ((i, v), s) -> 
         for t_ix = 0 to ((Array.length !(s.tokens) )-1) do
           (* looking in state.tokens for identifier >i< then setting token Tok_Number with evaluated expr >v< *)
           (match (!(s.tokens).(t_ix)) with 
-          | Tok_Word w -> if (String.compare w i)=0 then !(s.tokens).(t_ix) <- (Tok_Number (Printf.sprintf "%d" (match eval (get_identifier s.identifiers) v with | Some n -> n | None -> 0))) (* TODO: Tok_Number with int instead of string *)
+          | Tok_Word w -> if (String.compare w i)=0 then !(s.tokens).(t_ix) <- (Tok_Number (sprintf "%d" (match eval (get_identifier s.identifiers) v with | Some n -> n | None -> 0))) (* TODO: Tok_Number with int instead of string *)
           | _ -> ()) 
         done;
   
@@ -53,7 +54,7 @@ let rec directives_p (l: token list) : token list parser = {
 let preprocess_tokens (tokens: token list)  : state =
 
   match (tokens |> Array.of_list |> ref, 0, 0, [], []) |> set_state |> (directives_p [] ).run with
-  | s, Ok x    -> Printf.printf "after preprocess tokens:---------------\n%s\n---------------\n" (tokensl2str x);
+  | s, Ok x    -> printf "after preprocess tokens:---------------\n%s\n---------------\n" (tokensl2str x);
                      (* TODO: evaluate all identifiers here before return tokens *)
                   set_state (x |> Array.of_list |> ref, 0, s.byte_counter, [], [])
   | s, Error _ -> set_state ([] |> Array.of_list |> ref, 0, s.byte_counter, [], [])

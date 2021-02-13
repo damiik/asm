@@ -13,6 +13,8 @@ type token =
   | Tok_Sub
   | Tok_Or
   | Tok_And
+  | Tok_LNot
+  | Tok_BNot
   | Tok_Less
   | Tok_More
   | Tok_Equ
@@ -60,10 +62,18 @@ let tokenize str =
       (* Printf.printf "tokenize min\n"; *)
       Tok_Or::(f (pos + 1) s)
     end    
-    else if (Str.string_match (Str.regexp "&") s pos) then begin
-      (* Printf.printf "tokenize min\n"; *)
-      Tok_And::(f (pos + 1) s)
-    end    
+  else if (Str.string_match (Str.regexp "&") s pos) then begin
+    (* Printf.printf "tokenize min\n"; *)
+    Tok_And::(f (pos + 1) s)
+  end 
+  else if (Str.string_match (Str.regexp "!") s pos) then begin
+    (* Printf.printf "tokenize min\n"; *)
+    Tok_LNot::(f (pos + 1) s)
+  end 
+  else if (Str.string_match (Str.regexp "~") s pos) then begin
+    (* Printf.printf "tokenize min\n"; *)
+    Tok_BNot::(f (pos + 1) s)
+  end    
     else if (Str.string_match (Str.regexp "<") s pos) then begin
       (* Printf.printf "tokenize min\n"; *)
       Tok_Less::(f (pos + 1) s)
@@ -143,6 +153,8 @@ let tokenCompare (t1: token) (t2: token) (strict: bool) : bool =
     | Tok_Sub -> (match t2 with |Tok_Sub -> true |_ -> false)
     | Tok_Or -> (match t2 with |Tok_Or -> true |_ -> false)
     | Tok_And -> (match t2 with |Tok_And -> true |_ -> false)
+    | Tok_BNot -> (match t2 with |Tok_BNot -> true |_ -> false)
+    | Tok_LNot -> (match t2 with |Tok_LNot -> true |_ -> false)
     | Tok_Less -> (match t2 with |Tok_Less -> true |_ -> false)
     | Tok_More -> (match t2 with |Tok_More -> true |_ -> false)
     | Tok_Equ -> (match t2 with |Tok_Equ -> true |_ -> false)
@@ -178,7 +190,9 @@ let token2str (t: token) : string =
     | Tok_Div -> "(/)"
     | Tok_Sub -> "(-)"
     | Tok_Or -> "(|)"
-    | Tok_And -> "(&)"        
+    | Tok_And -> "(&)"       
+    | Tok_BNot -> "(~)" 
+    | Tok_LNot -> "(!)"  
     | Tok_Less -> "(<)"
     | Tok_More -> "(>)"
     | Tok_Equ -> "(=)"
@@ -188,7 +202,7 @@ let token2str (t: token) : string =
     | Tok_RParen -> "(Tok_RParen)"    
     | Tok_Word s -> Printf.sprintf "(%s)" s  
     | Tok_Label s -> Printf.sprintf "(%s:)" s  
-    | Tok_Direct s -> Printf.sprintf "(.%s)" s  
+    | Tok_Direct s -> Printf.sprintf "(%s)" s  
     | Tok_String s -> Printf.sprintf "(\"%s\")" s  
     | Tok_Char c -> Printf.sprintf "(Char: %c)" c
     | Tok_NewL -> "(\\n)"
